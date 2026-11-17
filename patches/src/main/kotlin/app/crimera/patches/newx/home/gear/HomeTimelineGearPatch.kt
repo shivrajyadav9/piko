@@ -5,116 +5,81 @@ import app.morphe.patcher.Fingerprint
 import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
 import app.morphe.patcher.extensions.InstructionExtensions.getInstruction
 import app.morphe.patcher.patch.bytecodePatch
-import app.morphe.patcher.util.proxy.mutableTypes.MutableField
-import com.android.tools.smali.dexlib2.AccessFlags
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
-import com.android.tools.smali.dexlib2.iface.reference.MethodReference
-import com.android.tools.smali.dexlib2.immutable.ImmutableField
 
-internal val homeTabbedRootFingerprint = Fingerprint(
-    definingClass = "Lcom/x/home/tabbed/a;",
-    name = "d",
+internal val homeTabbedStateConstructorFingerprint = Fingerprint(
+    definingClass = "Lcom/x/home/v0;",
+    name = "<init>",
     returnType = "V",
     parameters = listOf(
-        "Lcom/x/compose/core/l2;",
-        "Lcom/x/home/t;",
+        "Lcom/x/home/o0;",
+        "Lcom/x/home/u0;",
+        "Lcom/x/home/f;",
         "Z",
-        "Landroidx/compose/ui/Modifier;",
-        "Lkotlin/jvm/functions/Function1;",
-        "Landroidx/compose/runtime/Composer;",
-        "I",
-        "I",
+        "Z",
     ),
 )
 
-internal val homeTopBarFingerprint = Fingerprint(
-    definingClass = "Lcom/x/home/tabbed/a;",
-    name = "i",
-    returnType = "V",
-    strings = listOf("home_navigation_bar_title"),
+internal val homeNavClickLambdaFingerprint = Fingerprint(
+    definingClass = "Lcom/x/home/tabbed/c0;",
+    name = "invoke",
+    returnType = "Ljava/lang/Object;",
+    parameters = emptyList(),
 )
 
-internal val addTabIconButtonFingerprint = Fingerprint(
-    definingClass = "Lcom/x/home/tabbed/a;",
-    name = "a",
-    returnType = "V",
+internal val homeNavIconComposableFingerprint = Fingerprint(
+    definingClass = "Lcom/x/compose/core/v2;",
+    name = "invoke",
+    returnType = "Ljava/lang/Object;",
     parameters = listOf(
-        "Lkotlin/jvm/functions/Function0;",
-        "Landroidx/compose/runtime/Composer;",
-        "I",
+        "Ljava/lang/Object;",
+        "Ljava/lang/Object;",
     ),
 )
 
 @Suppress("unused")
 val homeTimelineGearPatch = bytecodePatch(
     name = "Home timeline gear button",
-    description = "Adds a gear icon to the top-right of the Home bar that opens the custom timelines picker (same as the + button).",
+    description = "Places a gear icon in the top-right corner of the Home bar (in place of the Premium upsell) that opens the custom timelines picker.",
 ) {
     compatibleWith(COMPATIBILITY_NEW_X)
 
     execute {
-        val rootClass = homeTabbedRootFingerprint.classDef
-        val rootMethod = homeTabbedRootFingerprint.method
-        val topBarMethod = homeTopBarFingerprint.method
-        val addButtonMethod = addTabIconButtonFingerprint.method
-
-        rootClass.staticFields.add(
-            MutableField(
-                ImmutableField(
-                    rootClass.type,
-                    "pikoHomeComponent",
-                    "Lcom/x/home/t;",
-                    AccessFlags.PUBLIC.value or AccessFlags.STATIC.value,
-                    null,
-                    null,
-                    null,
-                ),
-            ),
-        )
-
-        rootMethod.addInstructions(
+        homeTabbedStateConstructorFingerprint.method.addInstructions(
             0,
             """
-                sput-object p1, Lcom/x/home/tabbed/a;->pikoHomeComponent:Lcom/x/home/t;
+                sget-object p3, Lcom/x/home/d;->a:Lcom/x/home/d;
             """,
         )
 
-        val cCallIndex = topBarMethod.implementation!!.instructions.indexOfFirst { insn ->
-            insn.opcode == Opcode.INVOKE_STATIC &&
-                ((insn as ReferenceInstruction).reference as MethodReference).let {
-                    it.definingClass == "Lcom/x/home/tabbed/a;" && it.name == "c"
-                }
-        }
-        if (cCallIndex == -1) error("Could not find a->c() call in Home top bar")
-
-        topBarMethod.addInstructions(
-            cCallIndex + 1,
-            """
-                sget-object v0, Lcom/x/home/tabbed/a;->pikoHomeComponent:Lcom/x/home/t;
-                if-eqz v0, :piko_skip_gear
-                new-instance v1, Lcom/x/home/tabbed/c0;
-                const/4 v2, 0x0
-                invoke-direct {v1, v0, v2}, Lcom/x/home/tabbed/c0;-><init>(Lcom/x/home/t;B)V
-                invoke-static {v1, p7, v2}, Lcom/x/home/tabbed/a;->a(Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)V
-                :piko_skip_gear
-                nop
-            """,
-        )
-
-        val n9Index = addButtonMethod.implementation!!.instructions.indexOfFirst { insn ->
+        val iconMethod = homeNavIconComposableFingerprint.method
+        val e8Index = iconMethod.implementation!!.instructions.indexOfFirst { insn ->
             insn.opcode == Opcode.SGET_OBJECT &&
-                (insn as ReferenceInstruction).reference.toString().contains("Lcom/x/icons/a;->n9:")
+                (insn as ReferenceInstruction).reference.toString().contains("Lcom/x/icons/a;->E8:")
         }
-        if (n9Index != -1) {
-            val reg = (addButtonMethod.getInstruction(n9Index) as OneRegisterInstruction).registerA
-            addButtonMethod.addInstructions(
-                n9Index + 1,
-                """
-                    sget-object v$reg, Lcom/x/icons/a;->Ca:Lcom/x/icons/b;
-                """,
-            )
+        if (e8Index == -1) error("Could not find E8 icon in v2.invoke")
+        val iconReg = (iconMethod.getInstruction(e8Index) as OneRegisterInstruction).registerA
+        iconMethod.addInstructions(
+            e8Index + 1,
+            """
+                sget-object v$iconReg, Lcom/x/icons/a;->Ca:Lcom/x/icons/b;
+            """,
+        )
+
+        val clickMethod = homeNavClickLambdaFingerprint.method
+        val xIndex = clickMethod.implementation!!.instructions.indexOfFirst { insn ->
+            insn.opcode == Opcode.SGET_OBJECT &&
+                (insn as ReferenceInstruction).reference.toString().contains("Lcom/x/home/x;->a:")
         }
+        if (xIndex == -1) error("Could not find OnHomeNavButtonClicked in c0.invoke")
+        val clickReg = (clickMethod.getInstruction(xIndex) as OneRegisterInstruction).registerA
+        clickMethod.addInstructions(
+            xIndex + 1,
+            """
+                sget-object v$clickReg, Lcom/x/home/v;->a:Lcom/x/home/v;
+            """,
+        )
     }
 }
