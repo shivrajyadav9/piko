@@ -1,9 +1,11 @@
 package app.crimera.patches.newx.home.gear
 
+import app.crimera.patches.newx.utils.Constants.COMPATIBILITY_NEW_X
 import app.morphe.patcher.Fingerprint
 import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
 import app.morphe.patcher.extensions.InstructionExtensions.getInstruction
 import app.morphe.patcher.patch.bytecodePatch
+import app.morphe.patcher.util.proxy.mutableTypes.MutableField
 import com.android.tools.smali.dexlib2.AccessFlags
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
@@ -50,7 +52,7 @@ val homeTimelineGearPatch = bytecodePatch(
     name = "Home timeline gear button",
     description = "Adds a gear icon to the top-right of the Home bar that opens the custom timelines picker (same as the + button).",
 ) {
-    compatibleWith("com.twitter.android"("12.43.0-prod.01"))
+    compatibleWith(COMPATIBILITY_NEW_X)
 
     execute {
         val rootClass = homeTabbedRootFingerprint.classDef
@@ -59,14 +61,16 @@ val homeTimelineGearPatch = bytecodePatch(
         val addButtonMethod = addTabIconButtonFingerprint.method
 
         rootClass.staticFields.add(
-            ImmutableField(
-                rootClass.type,
-                "pikoHomeComponent",
-                "Lcom/x/home/t;",
-                AccessFlags.PUBLIC.value or AccessFlags.STATIC.value,
-                null,
-                null,
-                null,
+            MutableField(
+                ImmutableField(
+                    rootClass.type,
+                    "pikoHomeComponent",
+                    "Lcom/x/home/t;",
+                    AccessFlags.PUBLIC.value or AccessFlags.STATIC.value,
+                    null,
+                    null,
+                    null,
+                ),
             ),
         )
 
