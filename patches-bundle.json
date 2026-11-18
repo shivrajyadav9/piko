@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-11-18T11:00:00,
+  "created_at": "2026-11-18T11:00:00",
   "description": "## [3.11.1](https://github.com/crimera/piko/compare/v3.11.0...v3.11.1) (2026-11-10)\n\n### 🐛 Bug Fixes\n\n* **Instagram:** Spoof patched app signature to match original app ([#2281](https://github.com/crimera/piko/issues/2281)) ([47d8af4](https://github.com/crimera/piko/commit/47d8af42553dc2e5218e740834fee8e79da49e57))",
   "download_url": "https://github.com/shivrajyadav9/piko/releases/download/v1.0.1/patches-3.11.1.mpp",
   "version": "v1.0.1"
