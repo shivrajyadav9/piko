@@ -15,12 +15,12 @@ jobs:
         with:
           fetch-depth: 0
        - name: Remove upstream Instagram patches
-        run: |
-           find patches/src/main/kotlin/app/crimera/patches/instagram -type f \
+         run: |
+            find patches/src/main/kotlin/app/crimera/patches/instagram -type f \
             ! -path '*/utils/Constants.kt' \
             ! -path '*/misc/actionBar/leftAlignDirectInboxTitle/LeftAlignDirectInboxTitlePatch.kt' \
             -delete
-             find patches/src/main/kotlin/app/crimera/patches/instagram -type d -empty -delete
+              find patches/src/main/kotlin/app/crimera/patches/instagram -type d -empty -delete
              if [ -n "$(git status --porcelain)" ]; then
               git config user.name "github-actions[bot]"
               git config user.email "github-actions[bot]@users.noreply.github.com"
