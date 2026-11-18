@@ -190,3 +190,4 @@ val drawerPikoSettingsIconPatch = bytecodePatch(
             """,
         )
     }
+}
