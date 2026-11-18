@@ -27,7 +27,7 @@ jobs:
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./gradlew :patches:generatePatches -x compileTestKotlin -x test -x lint --no-daemon
+        run: ./gradlew clean buildAndroid --no-daemon
 
       - name: Create GitHub Release
         env:
