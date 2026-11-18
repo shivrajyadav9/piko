@@ -43,7 +43,7 @@ internal val homeNavIconComposableFingerprint = Fingerprint(
 @Suppress("unused")
 val homeTimelineGearPatch = bytecodePatch(
     name = "Home timeline gear button",
-    description = "Places a 32dp gear icon in the top-right corner of the Home bar (in place of the Premium upsell) that opens the custom timelines picker.",
+    description = "Places a 25dp gear icon in the top-right corner of the Home bar (in place of the Premium upsell) that opens the custom timelines picker.",
 ) {
     compatibleWith(COMPATIBILITY_NEW_X)
 
@@ -81,7 +81,7 @@ val homeTimelineGearPatch = bytecodePatch(
             jCallIndex,
             """
                 sget-object v7, Landroidx/compose/ui/q;->a:Landroidx/compose/ui/q;
-                const/high16 v13, 0x42000000
+                const/high16 v13, 0x41c80000
                 invoke-static {v7, v13}, Landroidx/compose/foundation/layout/q3;->m(Landroidx/compose/ui/Modifier;F)Landroidx/compose/ui/Modifier;
                 move-result-object v7
                 const/16 v13, 0x18
