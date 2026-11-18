@@ -60,7 +60,7 @@ val drawerPikoSettingsIconPatch = bytecodePatch(
             method.addInstructions(
                 arrangementIndex + 1,
                 """
-                    sget-object v$arrReg, Landroidx/compose/foundation/layout/n;->e:Landroidx/compose/foundation/layout/x2;
+                    sget-object v$arrReg, Landroidx/compose/foundation/layout/n;->g:Landroidx/compose/foundation/layout/x2;
                 """,
             )
         }
