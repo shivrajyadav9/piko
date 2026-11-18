@@ -8,6 +8,7 @@ import app.morphe.patcher.patch.bytecodePatch
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
+import com.android.tools.smali.dexlib2.iface.reference.MethodReference
 
 internal val homeTabbedStateConstructorFingerprint = Fingerprint(
     definingClass = "Lcom/x/home/v0;",
@@ -42,7 +43,7 @@ internal val homeNavIconComposableFingerprint = Fingerprint(
 @Suppress("unused")
 val homeTimelineGearPatch = bytecodePatch(
     name = "Home timeline gear button",
-    description = "Places a gear icon in the top-right corner of the Home bar (in place of the Premium upsell) that opens the custom timelines picker.",
+    description = "Places a 32dp gear icon in the top-right corner of the Home bar (in place of the Premium upsell) that opens the custom timelines picker.",
 ) {
     compatibleWith(COMPATIBILITY_NEW_X)
 
@@ -55,7 +56,8 @@ val homeTimelineGearPatch = bytecodePatch(
         )
 
         val iconMethod = homeNavIconComposableFingerprint.method
-        val e8Index = iconMethod.implementation!!.instructions.indexOfFirst { insn ->
+        val insns = iconMethod.implementation!!.instructions
+        val e8Index = insns.indexOfFirst { insn ->
             insn.opcode == Opcode.SGET_OBJECT &&
                 (insn as ReferenceInstruction).reference.toString().contains("Lcom/x/icons/a;->E8:")
         }
@@ -65,6 +67,24 @@ val homeTimelineGearPatch = bytecodePatch(
             e8Index + 1,
             """
                 sget-object v$iconReg, Lcom/x/icons/a;->Ca:Lcom/x/icons/b;
+            """,
+        )
+
+        val jCallIndex = insns.indexOfFirstIndexed(e8Index) { insn ->
+            insn.opcode == Opcode.INVOKE_STATIC_RANGE &&
+                ((insn as ReferenceInstruction).reference as MethodReference).let {
+                    it.definingClass == "Lcom/x/compose/core/j;" && it.name == "f"
+                }
+        }
+        if (jCallIndex == -1) error("Could not find j.f() call in v2.invoke")
+        iconMethod.addInstructions(
+            jCallIndex,
+            """
+                sget-object v7, Landroidx/compose/ui/q;->a:Landroidx/compose/ui/q;
+                const/high16 v13, 0x42000000
+                invoke-static {v7, v13}, Landroidx/compose/foundation/layout/q3;->m(Landroidx/compose/ui/Modifier;F)Landroidx/compose/ui/Modifier;
+                move-result-object v7
+                const/16 v13, 0x18
             """,
         )
 
@@ -82,4 +102,11 @@ val homeTimelineGearPatch = bytecodePatch(
             """,
         )
     }
+}
+
+private inline fun <T> List<T>.indexOfFirstIndexed(startIndex: Int, predicate: (T) -> Boolean): Int {
+    for (i in startIndex until size) {
+        if (predicate(this[i])) return i
+    }
+    return -1
 }
