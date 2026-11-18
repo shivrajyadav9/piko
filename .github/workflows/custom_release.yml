@@ -14,8 +14,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Remove upstream Instagram patches
-      run: |
+       - name: Remove upstream Instagram patches
+        run: |
           find patches/src/main/kotlin/app/crimera/patches/instagram -type f \
             ! -path '*/utils/Constants.kt' \
             ! -path '*/misc/actionBar/leftAlignDirectInboxTitle/LeftAlignDirectInboxTitlePatch.kt' \
