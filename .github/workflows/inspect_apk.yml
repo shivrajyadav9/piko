@@ -1,0 +1,104 @@
+name: Inspect APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      package_id:
+        description: 'Android package name'
+        required: true
+        default: 'com.instagram.android'
+      version:
+        description: 'Target version name (or empty for latest)'
+        required: false
+        default: '452.1.0.53.64'
+      search_term:
+        description: 'String or class to inspect in DEX'
+        required: false
+        default: 'PrebindActionBar'
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup tools
+        run: |
+          curl -sL -o /tmp/apkeep https://github.com/EFForg/apkeep/releases/latest/download/apkeep-x86_64-unknown-linux-gnu
+          chmod +x /tmp/apkeep
+          curl -sL -o /tmp/apktool.jar https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar
+          curl -sL -o /tmp/jadx.zip https://github.com/skylot/jadx/releases/download/v1.5.1/jadx-1.5.1.zip
+          unzip -q /tmp/jadx.zip -d /tmp/jadx
+          chmod +x /tmp/jadx/bin/jadx
+
+      - name: Download APK
+        run: |
+          mkdir -p /tmp/apk
+          PKG="${{ inputs.package_id }}"
+          VER="${{ inputs.version }}"
+          if [ -n "$VER" ]; then
+            /tmp/apkeep -a "${PKG}@${VER}" -d apk-pure -o 'acknowledge_dangers=true' /tmp/apk || \
+            /tmp/apkeep -a "${PKG}" -d apk-pure -o 'acknowledge_dangers=true' /tmp/apk
+          else
+            /tmp/apkeep -a "${PKG}" -d apk-pure -o 'acknowledge_dangers=true' /tmp/apk
+          fi
+          ls -lh /tmp/apk
+          mkdir -p /tmp/extracted
+          for f in /tmp/apk/*.xapk /tmp/apk/*.apkm; do
+            [ -f "$f" ] && unzip -q -o "$f" -d /tmp/extracted
+          done
+          for f in /tmp/apk/*.apk; do
+            [ -f "$f" ] && cp "$f" /tmp/extracted/base.apk
+          done
+          ls -lh /tmp/extracted
+
+      - name: Inspect resources and DEX
+        run: |
+          BASE_APK=$(find /tmp/extracted -maxdepth 2 -name "*.apk" -exec sh -c 'unzip -l "$1" | grep -q "classes.dex" && echo "$1"' _ {} \; | head -n 1)
+          echo "BASE_APK=$BASE_APK"
+          if [ -f /tmp/extracted/manifest.json ]; then
+            head -n 25 /tmp/extracted/manifest.json
+          fi
+
+          echo "=== DECODING RESOURCES ==="
+          java -Xmx4g -jar /tmp/apktool.jar d -s -f "$BASE_APK" -o /tmp/res_out >/dev/null 2>&1 || true
+          echo "=== ACTION BAR LAYOUTS ==="
+          grep -rl "action_bar_buttons_container_right" /tmp/res_out/res/layout* 2>/dev/null | head -n 10 | while read f; do
+            echo "--- FILE: $f ---"
+            cat "$f"
+          done
+          echo "=== DIRECT INBOX LAYOUTS ==="
+          find /tmp/res_out/res/layout* -name "*direct_inbox*action*" -o -name "*igds_action_bar*" -o -name "*action_bar_title*" 2>/dev/null | head -n 10 | while read f; do
+            echo "--- FILE: $f ---"
+            cat "$f"
+          done
+
+          echo "=== EXTRACTING TARGET DEX ==="
+          mkdir -p /tmp/dex
+          unzip -q -o "$BASE_APK" "*.dex" -d /tmp/dex
+          python3 - << 'PY'
+          import glob, subprocess, os
+          search_term = "${{ inputs.search_term }}".encode()
+          targets = [b"Lcom/instagram/igds/components/actionbar/IgdsActionBar;", search_term]
+          matched_dex = set()
+          for p in sorted(glob.glob("/tmp/dex/*.dex")):
+              data = open(p, "rb").read()
+              for t in targets:
+                  if t in data:
+                      print(f"MATCH {t.decode()} in {os.path.basename(p)}")
+                      matched_dex.add(p)
+          for p in sorted(matched_dex):
+              out = "/tmp/jadx_out_" + os.path.basename(p)
+              subprocess.run(["/tmp/jadx/bin/jadx", "-d", out, "--no-res", "--no-imports", p], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+              igds = os.path.join(out, "sources/com/instagram/igds/components/actionbar/IgdsActionBar.java")
+              if os.path.exists(igds):
+                  print("=== IgdsActionBar.java ===")
+                  print(open(igds).read()[:12000])
+              for root, _, files in os.walk(out):
+                  for fn in files:
+                      if fn.endswith(".java"):
+                          fp = os.path.join(root, fn)
+                          txt = open(fp, errors="ignore").read()
+                          if "${{ inputs.search_term }}" in txt:
+                              print(f"=== MATCH FILE: {fp} ===")
+                              idx = txt.find("${{ inputs.search_term }}")
+                              print(txt[max(0, idx-3000):idx+5000])
+          PY
