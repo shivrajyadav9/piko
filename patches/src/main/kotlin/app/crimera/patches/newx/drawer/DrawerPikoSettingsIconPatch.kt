@@ -4,6 +4,7 @@ import app.crimera.patches.newx.utils.Constants.COMPATIBILITY_NEW_X
 import app.morphe.patcher.Fingerprint
 import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
 import app.morphe.patcher.patch.bytecodePatch
+import com.android.tools.smali.dexlib2.Opcode
 
 internal val drawerIconButtonFingerprint = Fingerprint(
     definingClass = "Lcom/x/main/drawer/a;",
@@ -25,8 +26,14 @@ val drawerPikoSettingsIconPatch = bytecodePatch(
     compatibleWith(COMPATIBILITY_NEW_X)
 
     execute {
-        drawerIconButtonFingerprint.method.addInstructions(
-            0,
+        val method = drawerIconButtonFingerprint.method
+        val returnIndex = method.implementation!!.instructions.indexOfLast {
+            it.opcode == Opcode.RETURN_VOID
+        }
+        if (returnIndex == -1) error("Could not find return-void in drawer/a->g")
+
+        method.addInstructions(
+            returnIndex,
             """
                 if-nez p0, :piko_render_only
                 invoke-static {}, Lapp/morphe/extension/newx/settings/ComposeSettingsHook;->getSettingsClickHandler()Lkotlin/jvm/functions/Function0;
