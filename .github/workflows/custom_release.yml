@@ -27,7 +27,7 @@ jobs:
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./gradlew build -x test --no-daemon
+        run: ./gradlew :patches:generatePatches --no-daemon
 
       - name: Create GitHub Release
         env:
