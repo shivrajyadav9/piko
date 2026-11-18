@@ -58,18 +58,7 @@ jobs:
             head -n 25 /tmp/extracted/manifest.json
           fi
 
-          echo "=== DECODING RESOURCES ==="
-          java -Xmx4g -jar /tmp/apktool.jar d -s -f "$BASE_APK" -o /tmp/res_out >/dev/null 2>&1 || true
-          echo "=== ACTION BAR LAYOUTS ==="
-          grep -rl "action_bar_buttons_container_right" /tmp/res_out/res/layout* 2>/dev/null | head -n 10 | while read f; do
-            echo "--- FILE: $f ---"
-            cat "$f"
-          done
-          echo "=== DIRECT INBOX LAYOUTS ==="
-          find /tmp/res_out/res/layout* -name "*direct_inbox*action*" -o -name "*igds_action_bar*" -o -name "*action_bar_title*" 2>/dev/null | head -n 10 | while read f; do
-            echo "--- FILE: $f ---"
-            cat "$f"
-          done
+         
 
           echo "=== EXTRACTING TARGET DEX ==="
           mkdir -p /tmp/dex
@@ -91,7 +80,11 @@ jobs:
               igds = os.path.join(out, "sources/com/instagram/igds/components/actionbar/IgdsActionBar.java")
               if os.path.exists(igds):
                   print("=== IgdsActionBar.java ===")
-                  print(open(igds).read()[:12000])
+                  txt = open(igds).read(); print(txt[10000:])
+              for rel in ["sources/X/C07CY.java", "sources/X/C07MB.java"]:
+                  fp = os.path.join(out, rel)
+                  if os.path.exists(fp):
+                      print(f"=== {rel} ({os.path.basename(p)}) ==="); print(open(fp).read())
               for root, _, files in os.walk(out):
                   for fn in files:
                       if fn.endswith(".java"):
