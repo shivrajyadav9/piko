@@ -22,6 +22,7 @@ import com.android.tools.smali.dexlib2.AccessFlags
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.iface.instruction.FiveRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodImplementation
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodParameter
@@ -42,10 +43,12 @@ private val igdsActionBarBindTitleFingerprint =
             listOf(
                 methodCall(smali = "Ljava/lang/Integer;->intValue()I"),
                 opcode(Opcode.MOVE_RESULT, location = MatchAfterImmediately()),
-                methodCall(smali = "Ljava/lang/Math;->max(II)I"),
             ),
-        custom = { _, classDef ->
-            classDef.type == IGDS_ACTION_BAR_CLASS
+        custom = { method, classDef ->
+            classDef.type == IGDS_ACTION_BAR_CLASS &&
+                method.implementation?.instructions?.any { insn ->
+                    (insn as? ReferenceInstruction)?.reference?.toString() == "Ljava/lang/Math;->max(II)I"
+                } == true
         },
     )
 
