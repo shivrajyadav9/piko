@@ -4,6 +4,7 @@ import app.crimera.patches.newx.utils.Constants.COMPATIBILITY_NEW_X
 import app.morphe.patcher.Fingerprint
 import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
 import app.morphe.patcher.extensions.InstructionExtensions.getInstruction
+import app.morphe.patcher.extensions.InstructionExtensions.removeInstruction
 import app.morphe.patcher.patch.bytecodePatch
 import app.morphe.patcher.util.proxy.mutableTypes.MutableMethod
 import com.android.tools.smali.dexlib2.AccessFlags
@@ -125,6 +126,41 @@ val drawerPikoSettingsIconPatch = bytecodePatch(
             """,
         )
 
+        val iconHelperMethod = MutableMethod(
+            ImmutableMethod(
+                drawerClass.type,
+                "pikoGetDrawerIcon",
+                listOf(
+                    ImmutableMethodParameter("Lcom/x/icons/b;", null, null),
+                ),
+                "Lcom/x/icons/b;",
+                AccessFlags.PUBLIC.value or AccessFlags.STATIC.value,
+                null,
+                null,
+                ImmutableMethodImplementation(
+                    4,
+                    listOf(ImmutableInstruction10x(Opcode.RETURN_VOID)),
+                    null,
+                    null,
+                ),
+            ),
+        )
+        iconHelperMethod.addInstructions(
+            0,
+            """
+                invoke-static {}, Lapp/morphe/extension/newx/settings/PikoSettingsIcon;->getDrawableId()I
+                move-result v0
+                if-eqz v0, :piko_keep_ca
+                new-instance v1, Lcom/x/icons/b;
+                invoke-direct {v1, v0}, Lcom/x/icons/b;-><init>(I)V
+                return-object v1
+                :piko_keep_ca
+                return-object p0
+            """,
+        )
+        iconHelperMethod.removeInstruction(iconHelperMethod.implementation!!.instructions.size - 1)
+        drawerClass.methods.add(iconHelperMethod)
+
         val navMethod = navbarIconLambdaFingerprint.method
         val caIndex = navMethod.implementation!!.instructions.indexOfFirst { insn ->
             insn.opcode == Opcode.SGET_OBJECT &&
@@ -135,13 +171,8 @@ val drawerPikoSettingsIconPatch = bytecodePatch(
             navMethod.addInstructions(
                 caIndex + 1,
                 """
-                    invoke-static {}, Lapp/morphe/extension/newx/settings/PikoSettingsIcon;->getDrawableId()I
-                    move-result v0
-                    if-eqz v0, :piko_keep_ca
-                    new-instance v$iconReg, Lcom/x/icons/b;
-                    invoke-direct {v$iconReg, v0}, Lcom/x/icons/b;-><init>(I)V
-                    :piko_keep_ca
-                    nop
+                    invoke-static {v$iconReg}, Lcom/x/main/drawer/a;->pikoGetDrawerIcon(Lcom/x/icons/b;)Lcom/x/icons/b;
+                    move-result-object v$iconReg
                 """,
             )
         }
@@ -175,6 +206,7 @@ val drawerPikoSettingsIconPatch = bytecodePatch(
                 return v0
             """,
         )
+        rowGuardMethod.removeInstruction(rowGuardMethod.implementation!!.instructions.size - 1)
         drawerClass.methods.add(rowGuardMethod)
 
         val uMethod = drawerClass.methods.firstOrNull { it.name == "u" }
