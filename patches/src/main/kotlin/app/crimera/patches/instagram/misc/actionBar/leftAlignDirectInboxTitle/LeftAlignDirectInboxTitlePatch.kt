@@ -23,6 +23,7 @@ import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.iface.instruction.FiveRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
+import com.android.tools.smali.dexlib2.iface.reference.MethodReference
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodImplementation
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodParameter
@@ -41,13 +42,17 @@ private val igdsActionBarBindTitleFingerprint =
         returnType = "V",
         filters =
             listOf(
-                methodCall(smali = "Ljava/lang/Integer;->intValue()I"),
+                methodCall(name = "intValue", returnType = "I"),
                 opcode(Opcode.MOVE_RESULT, location = MatchAfterImmediately()),
             ),
         custom = { method, classDef ->
             classDef.type == IGDS_ACTION_BAR_CLASS &&
                 method.implementation?.instructions?.any { insn ->
-                    (insn as? ReferenceInstruction)?.reference?.toString() == "Ljava/lang/Math;->max(II)I"
+                    val ref = (insn as? ReferenceInstruction)?.reference as? MethodReference
+                    ref != null && (
+                        (ref.definingClass == "Ljava/lang/Math;" && ref.name == "max") ||
+                            ref.name == "setCompoundDrawablesWithIntrinsicBounds"
+                    )
                 } == true
         },
     )
