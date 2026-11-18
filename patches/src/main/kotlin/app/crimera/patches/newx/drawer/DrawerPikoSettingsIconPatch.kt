@@ -177,31 +177,18 @@ val drawerPikoSettingsIconPatch = bytecodePatch(
         )
         drawerClass.methods.add(rowGuardMethod)
 
-        val tMethod = drawerClass.methods.firstOrNull { it.name == "t" }
-        if (tMethod != null) {
-            val uCallIndex = tMethod.implementation!!.instructions.indexOfFirst { insn ->
-                insn.opcode == Opcode.INVOKE_STATIC_RANGE &&
-                    ((insn as ReferenceInstruction).reference as MethodReference).let {
-                        it.definingClass == "Lcom/x/main/drawer/a;" && it.name == "u"
-                    }
-            }
-            if (uCallIndex != -1) {
-                tMethod.addInstructions(
-                    uCallIndex,
-                    """
-                        invoke-static {v3}, Lcom/x/main/drawer/a;->pikoShouldSkipDrawerRow(Ljava/lang/String;)Z
-                        move-result v0
-                        if-nez v0, :piko_skip_u_call
-                    """,
-                )
-                tMethod.addInstructions(
-                    uCallIndex + 4,
-                    """
-                        :piko_skip_u_call
-                        nop
-                    """,
-                )
-            }
-        }
+        val uMethod = drawerClass.methods.firstOrNull { it.name == "u" }
+        uMethod?.addInstructions(
+            0,
+            """
+                move-object/from16 v0, p0
+                invoke-static {v0}, Lcom/x/main/drawer/a;->pikoShouldSkipDrawerRow(Ljava/lang/String;)Z
+                move-result v0
+                if-eqz v0, :piko_draw_row
+                return-void
+                :piko_draw_row
+                nop
+            """,
+        )
     }
 }
