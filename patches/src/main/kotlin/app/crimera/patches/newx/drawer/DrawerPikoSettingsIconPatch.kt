@@ -39,18 +39,12 @@ val drawerPikoSettingsIconPatch = bytecodePatch(
                 invoke-static {}, Lapp/morphe/extension/newx/settings/ComposeSettingsHook;->getSettingsClickHandler()Lkotlin/jvm/functions/Function0;
                 move-result-object v1
                 if-eqz v1, :piko_skip_drawer_gear
-                sget-object v0, Landroidx/compose/ui/q;->a:Landroidx/compose/ui/q;
-                const/4 v2, 0x0
-                const/high16 v3, 0x42600000
-                const/high16 v4, 0x41800000
-                invoke-static {v0, v2, v2, v3, v4}, Landroidx/compose/foundation/layout/c;->K(Landroidx/compose/ui/Modifier;FFFF)Landroidx/compose/ui/Modifier;
-                move-result-object v0
-                sget-object v2, Landroidx/compose/ui/b;->h:Landroidx/compose/ui/i;
-                sget-object v3, Landroidx/compose/foundation/layout/z;->a:Landroidx/compose/foundation/layout/z;
-                invoke-virtual {v3, v0, v2}, Landroidx/compose/foundation/layout/z;->a(Landroidx/compose/ui/Modifier;Landroidx/compose/ui/i;)Landroidx/compose/ui/Modifier;
-                move-result-object v0
-                const/4 v2, 0x0
-                invoke-static {v2, v9, v0, v1}, Lcom/x/main/drawer/a;->g(ILandroidx/compose/runtime/Composer;Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function0;)V
+                const/high16 v0, 0x42600000
+                const/4 v6, 0x0
+                invoke-static {v7, v0, v6}, Landroidx/compose/foundation/layout/c;->H(Landroidx/compose/ui/Modifier;FF)Landroidx/compose/ui/Modifier;
+                move-result-object v7
+                const/4 v0, 0x0
+                invoke-static {v0, v9, v7, v1}, Lcom/x/main/drawer/a;->g(ILandroidx/compose/runtime/Composer;Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function0;)V
                 :piko_skip_drawer_gear
                 nop
             """,
