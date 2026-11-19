@@ -5,6 +5,7 @@ import app.morphe.patcher.Fingerprint
 import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
 import app.morphe.patcher.extensions.InstructionExtensions.removeInstruction
 import app.morphe.patcher.patch.bytecodePatch
+import app.morphe.patcher.patch.resourcePatch
 import app.morphe.patcher.util.proxy.mutableTypes.MutableField.Companion.toMutable
 import app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.Companion.toMutable
 import com.android.tools.smali.dexlib2.AccessFlags
@@ -34,6 +35,25 @@ private val BLUR_FEATURE_SWITCHES =
         "xchat_liquid_glass_convo_header_enabled",
     )
 
+private val enableBlurResourcesPatch =
+    resourcePatch {
+        execute {
+            document("res/values/strings.xml").use { document ->
+                val resources = document.getElementsByTagName("resources").item(0)
+                listOf(
+                    "piko_my_patches_category_title" to "My Patches",
+                    "piko_my_patches_category_summary" to "Custom patches",
+                    "piko_my_patches_enable_blur_title" to "Enable blur effects",
+                    "piko_my_patches_enable_blur_summary" to "Enable Haze and Glass blur effects on all devices",
+                ).forEach { (name, value) ->
+                    val stringElement = document.createElement("string")
+                    stringElement.setAttribute("name", name)
+                    stringElement.textContent = value
+                    resources.appendChild(stringElement)
+                }
+            }
+        }
+    }
 @Suppress("unused")
 val enableBlurEffectsPatch =
     bytecodePatch(
@@ -42,6 +62,7 @@ val enableBlurEffectsPatch =
     ) {
         compatibleWith(COMPATIBILITY_NEW_X)
 
+dependsOn(enableBlurResourcesPatch)
         execute {
             val hazeClass = hazeModeFingerprint.classDef
             val hazeClassType = hazeClass.type
@@ -86,15 +107,15 @@ val enableBlurEffectsPatch =
                 const/4 v0, 0x1
                 sput-boolean v0, $hazeClassType->pikoSettingsRegistered:Z
                 const-string v0, "newx.my_patches"
-                const-string v1, "My Patches"
-                const-string v2, "Custom patches"
-                const-string v3, "ic_vector_wrench"
+const-string v1, "piko_my_patches_category_title"
+const-string v2, "piko_my_patches_category_summary"
+const/4 v3, 0x0
                 const/16 v4, 0x32
                 invoke-static/range {v0 .. v4}, $SETTINGS_REGISTRY->registerCategory(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V
                 const-string v0, "newx.my_patches"
                 const-string v1, "newx.my_patches.enable_blur"
-                const-string v2, "Enable blur effects"
-                const-string v3, "Enable Haze and Glass blur effects on all devices"
+            const-string v2, "piko_my_patches_enable_blur_title"
+            const-string v3, "piko_my_patches_enable_blur_summary"
                 const/16 v4, 0xa
                 invoke-static/range {v0 .. v4}, $SETTINGS_REGISTRY->registerToggle(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V
                 const-string v0, "newx.my_patches.enable_blur"
@@ -128,7 +149,6 @@ val enableBlurEffectsPatch =
             isEnabledHelper.addInstructions(
                 0,
                 """
-                invoke-static {}, $hazeClassType->pikoRegisterMyPatches()V
                 const-string v0, "newx.my_patches.enable_blur"
                 const/4 v1, 0x1
                 invoke-static {v0, v1}, $SETTINGS_REGISTRY->getBooleanOrDefault(Ljava/lang/String;Z)Z
@@ -138,15 +158,6 @@ val enableBlurEffectsPatch =
             )
             isEnabledHelper.removeInstruction(isEnabledHelper.implementation!!.instructions.size - 1)
             hazeClass.methods.add(isEnabledHelper)
-
-            // 3. Also hook BuiltInSettings.register() if already merged in this patch context.
-            classDefByOrNull(BUILT_IN_SETTINGS)?.let { builtIn ->
-                val mutableBuiltIn = mutableClassDefBy(builtIn)
-                mutableBuiltIn.methods.firstOrNull { it.name == "register" && it.parameterTypes.isEmpty() }?.addInstructions(
-                    0,
-                    "invoke-static {}, $hazeClassType->pikoRegisterMyPatches()V",
-                )
-            }
 
             // 4. Hook com/x/android/haze/b->a() at index 0 to return Blur (when ON) or TintOnly (when OFF).
             hazeModeFingerprint.method.addInstructions(
@@ -210,4 +221,14 @@ val enableBlurEffectsPatch =
                 }
             }
         }
+finalize {
+val hazeClassType = hazeModeFingerprint.classDef.type
+classDefByOrNull(BUILT_IN_SETTINGS)?.let { builtIn ->
+val mutableBuiltIn = mutableClassDefBy(builtIn)
+mutableBuiltIn.methods.firstOrNull { it.name == "register" && it.parameterTypes.isEmpty() }?.addInstructions(
+0,
+"invoke-static {}, $hazeClassType->pikoRegisterMyPatches()V",
+)
+}
+}
     }
