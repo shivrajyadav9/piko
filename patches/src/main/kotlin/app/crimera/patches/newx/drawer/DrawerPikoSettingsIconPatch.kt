@@ -171,14 +171,13 @@ val drawerPikoSettingsIconPatch = bytecodePatch(
                 "pikoGetDrawerIcon",
                 listOf(
                     ImmutableMethodParameter("Lcom/x/compose/navbars/a;", null, null),
-                    ImmutableMethodParameter("Lcom/x/icons/b;", null, null),
                 ),
                 "Lcom/x/icons/b;",
                 AccessFlags.PUBLIC.value or AccessFlags.STATIC.value,
                 null,
                 null,
                 ImmutableMethodImplementation(
-                    5,
+                    4,
                     listOf(ImmutableInstruction10x(Opcode.RETURN_VOID)),
                     null,
                     null,
@@ -197,7 +196,8 @@ val drawerPikoSettingsIconPatch = bytecodePatch(
                 invoke-direct {v1, v0}, Lcom/x/icons/b;-><init>(I)V
                 return-object v1
                 :piko_keep_ca
-                return-object p1
+               sget-object v0, Lcom/x/icons/a;->Ca:Lcom/x/icons/b;
+               return-object v0
             """,
         )
         iconHelperMethod.removeInstruction(iconHelperMethod.implementation!!.instructions.size - 1)
@@ -213,7 +213,7 @@ val drawerPikoSettingsIconPatch = bytecodePatch(
             navMethod.addInstructions(
                 caIndex + 1,
                 """
-                    invoke-static {p0, v$iconReg}, Lcom/x/main/drawer/a;->pikoGetDrawerIcon(Lcom/x/compose/navbars/a;Lcom/x/icons/b;)Lcom/x/icons/b;
+                    invoke-static/range {p0 .. p0}, Lcom/x/main/drawer/a;->pikoGetDrawerIcon(Lcom/x/compose/navbars/a;)Lcom/x/icons/b;
                     move-result-object v$iconReg
                 """,
             )
