@@ -28,8 +28,8 @@ jobs:
         run: |
           mkdir -p /tmp/apk /tmp/extracted
           /tmp/apkeep -a "${{ inputs.package_id }}@${{ inputs.version }}" -d apk-pure -o 'acknowledge_dangers=true' /tmp/apk
-          for f in /tmp/apk/*.xapk /tmp/apk/*.apkm; do [ -f "$f" ] && unzip -q -o "$f" -d /tmp/extracted; done
-          for f in /tmp/apk/*.apk; do [ -f "$f" ] && cp "$f" /tmp/extracted/base.apk; done
+          for f in /tmp/apk/*.xapk /tmp/apk/*.apkm; do [ -f "$f" ] && unzip -q -o "$f" -d /tmp/extracted; done || true
+          for f in /tmp/apk/*.apk; do [ -f "$f" ] && cp "$f" /tmp/extracted/base.apk; done || true
 
       - name: Inspect resources and DEX
         run: |
