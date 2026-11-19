@@ -208,7 +208,7 @@ val drawerDimThemePatch = bytecodePatch(
                     move-result v0
                     if-eqz v0, :piko_orig
                     const-string v1, "newx.theme.dark_style"
-                    const-string v2, "contrast"
+                    const-string v2, "default"
                     invoke-static {v1, v2}, $SETTINGS_REGISTRY->pikoSetString(Ljava/lang/String;Ljava/lang/String;)V
                     iget-object v1, p0, $CLICK_LAMBDA_CLASS->b:Lkotlin/jvm/functions/Function1;
                     sget-object v2, $DARK_MODE_ENUM->ON:$DARK_MODE_ENUM
