@@ -220,6 +220,39 @@ const/4 v3, 0x0
                     }
                 }
             }
+classDefByOrNull("Lcom/x/compose/core/u0;")?.let { u0ClassDef ->
+mutableClassDefBy(u0ClassDef).methods.firstOrNull {
+it.name == "a" &&
+it.parameterTypes == listOf("Landroidx/compose/runtime/Composer;") &&
+it.returnType == "Lcom/x/device/clustering/a;"
+}?.addInstructions(
+0,
+"""
+invoke-static {}, $hazeClassType->pikoIsBlurEnabled()Z
+move-result v0
+if-eqz v0, :piko_u0_off
+sget-object v0, Lcom/x/device/clustering/a;->PROGRESSIVE_BLUR:Lcom/x/device/clustering/a;
+return-object v0
+:piko_u0_off
+sget-object v0, Lcom/x/device/clustering/a;->NONE:Lcom/x/device/clustering/a;
+return-object v0
+""".trimIndent(),
+)
+}
+classDefByOrNull("Lcom/x/compose/core/c0;")?.let { c0ClassDef ->
+mutableClassDefBy(c0ClassDef).methods.firstOrNull {
+it.name == "a" &&
+it.parameterTypes == listOf("Landroidx/compose/runtime/Composer;") &&
+it.returnType == "Z"
+}?.addInstructions(
+0,
+"""
+invoke-static {}, $hazeClassType->pikoIsBlurEnabled()Z
+move-result v0
+return v0
+""".trimIndent(),
+)
+}
         }
 finalize {
 val hazeClassType = hazeModeFingerprint.classDef.type
