@@ -38,21 +38,19 @@ jobs:
           unzip -q -o "$BASE_APK" "*.dex" -d /tmp/dex
           python3 -c '
           import glob, subprocess, os
-          matches = [p for p in sorted(glob.glob("/tmp/dex/*.dex")) if b"LX/02sV;" in open(p, "rb").read()]
-          print("MATCHING DEX:", [os.path.basename(m) for m in matches])
-          for p in matches[:4]:
-              dn = os.path.basename(p)
+          for dn in ["classes.dex", "classes2.dex", "classes4.dex"]:
+              p = "/tmp/dex/" + dn
               out = "/tmp/jadx_out_" + dn
               subprocess.run(["/tmp/jadx/bin/jadx", "-d", out, "--no-res", "--no-imports", p], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
               for root, _, files in os.walk(out):
                   for fn in sorted(files):
-                      if not fn.endswith(".java") or fn == "C02sV.java":
+                      if not fn.endswith(".java") or fn == "C02sV.java" or fn.startswith("AnonymousClass000") or fn.startswith("C000"):
                           continue
                       fp = os.path.join(root, fn)
                       txt = open(fp, errors="ignore").read()
-                      idx = txt.find("C02sV")
+                      idx = txt.find("02sV")
                       if idx != -1:
                           print("=== MATCH FILE:", fp, dn, "===")
-                          print(txt[max(0, idx - 1500):min(len(txt), idx + 2500)])
+                          print(txt[max(0, idx - 1750):min(len(txt), idx + 1750)])
           '
           
