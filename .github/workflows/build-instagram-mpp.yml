@@ -1,0 +1,42 @@
+name: Build Morphe .mpp Bundle
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  build-mpp:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '17'
+          cache: gradle
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
+
+      - name: Compile Android .mpp patch bundle
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./gradlew buildAndroid
+
+      - name: Upload compiled .mpp artifact (Instagram 452.1.0.53.64 / build 385811006)
+        uses: actions/upload-artifact@v4
+        with:
+          name: morphe-instagram-385811006-mpp
+          path: patches/build/libs/*.mpp
