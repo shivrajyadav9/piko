@@ -65,33 +65,31 @@ jobs:
           unzip -q -o "$BASE_APK" "*.dex" -d /tmp/dex
           python3 - << 'PY'
           import glob, subprocess, os
-          search_term = "${{ inputs.search_term }}".encode()
-          targets = [b"Lcom/instagram/igds/components/actionbar/IgdsActionBar;", search_term]
-          matched_dex = set()
+          targets = [b"feed_timeline_following", b"feed_timeline_favorites"]
+          both_dex = []
           for p in sorted(glob.glob("/tmp/dex/*.dex")):
-              data = open(p, "rb").read()
-              for t in targets:
-                  if t in data:
-                      print(f"MATCH {t.decode()} in {os.path.basename(p)}")
-                      matched_dex.add(p)
-          for p in sorted(matched_dex):
-              out = "/tmp/jadx_out_" + os.path.basename(p)
-              subprocess.run(["/tmp/jadx/bin/jadx", "-d", out, "--no-res", "--no-imports", p], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-              igds = os.path.join(out, "sources/com/instagram/igds/components/actionbar/IgdsActionBar.java")
-              if os.path.exists(igds):
-                  print("=== IgdsActionBar.java ===")
-                  txt = open(igds).read(); print(txt[10000:])
-              for rel in ["sources/X/C07CY.java", "sources/X/C07MB.java"]:
-                  fp = os.path.join(out, rel)
-                  if os.path.exists(fp):
-                      print(f"=== {rel} ({os.path.basename(p)}) ==="); print(open(fp).read())
-              for root, _, files in os.walk(out):
-                  for fn in files:
-                      if fn.endswith(".java"):
-                          fp = os.path.join(root, fn)
-                          txt = open(fp, errors="ignore").read()
-                          if "${{ inputs.search_term }}" in txt:
-                              print(f"=== MATCH FILE: {fp} ===")
-                              idx = txt.find("${{ inputs.search_term }}")
-                              print(txt[max(0, idx-3000):idx+5000])
+            data = open(p, "rb").read()
+            hits = [t.decode() for t in targets if t in data]
+            if hits:
+              print(f"MATCH {hits} in {os.path.basename(p)}")
+            if len(hits) == 2:
+              both_dex.append(p)
+          total_chars = 0
+          for p in both_dex:
+            out = "/tmp/jadx_out_" + os.path.basename(p)
+            subprocess.run(["/tmp/jadx/bin/jadx", "-d", out, "--no-res", "--no-imports", p], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            for root, _, files in os.walk(out):
+              for fn in sorted(files):
+                if fn.endswith(".java"):
+                  fp = os.path.join(root, fn)
+                  txt = open(fp, errors="ignore").read()
+                  if "feed_timeline_following" in txt and "feed_timeline_favorites" in txt:
+                    header = f"=== MATCH FILE: {fp} ({os.path.basename(p)}) ===" + chr(10)
+                    rem = 15000 - total_chars
+                    if rem <= 0:
+                      break
+                    chunk = (header + txt)[:rem]
+                    print(chunk)
+                    total_chars += len(chunk)
+      
           PY
