@@ -1,5 +1,6 @@
 package app.crimera.patches.newx.drawer
 
+import app.crimera.patches.newx.utils.Constants.COMPATIBILITY_NEW_X
 import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
 import app.morphe.patcher.extensions.InstructionExtensions.removeInstruction
 import app.morphe.patcher.patch.bytecodePatch
@@ -11,7 +12,7 @@ import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
 import com.android.tools.smali.dexlib2.iface.reference.MethodReference
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodParameter
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction10x
+import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction10x
 
 private const val THEME_UI_CLASS = "Lcom/x/android/theme/impl/ui/a;"
 private const val DARK_MODE_ENUM = "Lcom/x/android/theme/api/f;"
@@ -26,7 +27,7 @@ val drawerDimThemePatch = bytecodePatch(
     name = "Drawer Dim theme",
     description = "Adds Crimera's Dim theme option to the Dark mode sheet opened from the side drawer moon button.",
 ) {
-    compatibleWith("com.twitter.android")
+    compatibleWith(COMPATIBILITY_NEW_X)
 
     execute {
         val themeUiClassDef = classDefByOrNull(THEME_UI_CLASS) ?: return@execute
@@ -40,7 +41,7 @@ val drawerDimThemePatch = bytecodePatch(
             smali: String,
         ) {
             val impl = MutableMethodImplementation(registerCount)
-            impl.addInstruction(ImmutableInstruction10x(Opcode.RETURN_VOID))
+            impl.addInstruction(BuilderInstruction10x(Opcode.RETURN_VOID))
             val helper = ImmutableMethod(
                 THEME_UI_CLASS,
                 name,
@@ -226,7 +227,7 @@ val drawerDimThemePatch = bytecodePatch(
             val mutableReg = mutableClassDefBy(regDef)
             if (mutableReg.methods.none { it.name == "pikoSetString" }) {
                 val impl = MutableMethodImplementation(3)
-                impl.addInstruction(ImmutableInstruction10x(Opcode.RETURN_VOID))
+                impl.addInstruction(BuilderInstruction10x(Opcode.RETURN_VOID))
                 val setter = ImmutableMethod(
                     SETTINGS_REGISTRY,
                     "pikoSetString",
