@@ -64,32 +64,6 @@ jobs:
           mkdir -p /tmp/dex
           unzip -q -o "$BASE_APK" "*.dex" -d /tmp/dex
           python3 - << 'PY'
-          import glob, subprocess, os
-          targets = [b"feed_timeline_following", b"feed_timeline_favorites"]
-          both_dex = []
-          for p in sorted(glob.glob("/tmp/dex/*.dex")):
-            data = open(p, "rb").read()
-            hits = [t.decode() for t in targets if t in data]
-            if hits:
-              print(f"MATCH {hits} in {os.path.basename(p)}")
-            if len(hits) == 2:
-              both_dex.append(p)
-          total_chars = 0
-          for p in both_dex:
-            out = "/tmp/jadx_out_" + os.path.basename(p)
-            subprocess.run(["/tmp/jadx/bin/jadx", "-d", out, "--no-res", "--no-imports", p], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            for root, _, files in os.walk(out):
-              for fn in sorted(files):
-                if fn.endswith(".java"):
-                  fp = os.path.join(root, fn)
-                  txt = open(fp, errors="ignore").read()
-                  if "feed_timeline_following" in txt and "feed_timeline_favorites" in txt:
-                    header = f"=== MATCH FILE: {fp} ({os.path.basename(p)}) ===" + chr(10)
-                    rem = 15000 - total_chars
-                    if rem <= 0:
-                      break
-                    chunk = (header + txt)[:rem]
-                    print(chunk)
-                    total_chars += len(chunk)
+        exec('import glob, subprocess, os\ntargets = [b"feed_timeline_following", b"feed_timeline_favorites", b"title_logo_chevron", b"main_feed_switcher"]\nfor p in sorted(glob.glob("/tmp/dex/*.dex")):\n  data = open(p, "rb").read()\n  hits = [t.decode() for t in targets if t in data]\n  if ("feed_timeline_following" in hits and "feed_timeline_favorites" in hits) or "title_logo_chevron" in hits or "main_feed_switcher" in hits:\n    print("MATCH", hits, "in", os.path.basename(p))\nfor dn in ["classes2.dex", "classes4.dex", "classes5.dex"]:\n  p = "/tmp/dex/" + dn\n  if not os.path.exists(p):\n    continue\n  out = "/tmp/jadx_out_" + dn\n  subprocess.run(["/tmp/jadx/bin/jadx", "-d", out, "--no-res", "--no-imports", p], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)\n  for root, _, files in os.walk(out):\n    for fn in sorted(files):\n      if not fn.endswith(".java") or fn.startswith("AnonymousClass000") or fn.startswith("C000"):\n        continue\n      fp = os.path.join(root, fn)\n      txt = open(fp, errors="ignore").read()\n      if ("feed_timeline_following" in txt and "feed_timeline_favorites" in txt) or "title_logo_chevron" in txt or ("FOLLOWING" in txt and "FAVORITES" in txt and "FOR_YOU" in txt):\n        print("=== MATCH FILE:", fp, dn, "===")\n        print(txt[:6000])\n')
       
           PY
