@@ -45,13 +45,14 @@ jobs:
               subprocess.run(["/tmp/jadx/bin/jadx", "-d", out, "--no-res", "--no-imports", p], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
               for root, _, files in os.walk(out):
                   for fn in sorted(files):
-                      if not fn.endswith(".java") or fn in ("C02tF.java", "C02sQ.java", "MainFeedActionBar.java") or fn.startswith(("AnonymousClass000", "C000")):
+                      if not fn.endswith(".java") or fn in ("C00qF.java", "C02tF.java", "C02sQ.java") or fn.startswith(("AnonymousClass000", "C000")):
                         continue
                       fp = os.path.join(root, fn)
                       txt = open(fp, errors="ignore").read()
-                      for m in re.finditer(r"36325991576391215L|new X\.C02tF|new X\.02tF|new X\.C02sX|new X\.02sX", txt):
+                      for m in re.finditer(r"00qF|02tF", txt):
                           idx = m.start()
                           print("=== MATCH FILE:", fp, dn, "===")
-                          print(txt[max(0, idx - 2000):min(len(txt), idx + 2000)])
+                          print(txt[max(0, idx - 1500):min(len(txt), idx + 1500)])
+                          break
           '
           
