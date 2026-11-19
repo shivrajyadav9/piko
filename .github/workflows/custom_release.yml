@@ -34,6 +34,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           MPP_FILE=$(find patches/build/libs -maxdepth 1 -name "patches-*.mpp" | head -n 1)
-         VER=$(grep -E '^version=' gradle.properties | cut -d= -f2 | tr -d '[:space:]'); if [ -z "$VER" ]; then VER=$(grep -E '^version\s*=' gradle.properties | cut -d= -f2 | tr -d '[:space:]'); fi; TAG="v$VER"
+          VER=$(awk -F= '/^version/{gsub(/[[:space:]]/,"",$2); print $2}' gradle.properties)
+          TAG="v${VER}"
           echo "Publishing $MPP_FILE as $TAG"
-          gh release create "$TAG" "$MPP_FILE" --title "Custom Piko NewX $TAG" --notes "Automated custom patches build ($TAG)"
+          gh release create "$TAG" "$MPP_FILE" --title "Custom Piko $TAG" --notes "Automated custom patches build ($TAG)"
+  
