@@ -39,7 +39,7 @@ jobs:
           cat << 'EOF' > /tmp/scan.py
           import glob, subprocess, os
           matches = []
-         for p in sorted(glob.glob("/tmp/dex/*.dex")):
+          for p in sorted(glob.glob("/tmp/dex/*.dex")):
            if b"LX/02sV;" in open(p, "rb").read(): matches.append(p)
           print("MATCHING DEX:", matches)
           for p in matches[:4]:
