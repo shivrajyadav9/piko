@@ -10,29 +10,24 @@ import app.crimera.patches.instagram.utils.Constants.COMPATIBILITY_INSTAGRAM
 import app.morphe.patcher.Fingerprint
 import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
 import app.morphe.patcher.extensions.InstructionExtensions.removeInstruction
+import app.morphe.patcher.patch.PatchException
 import app.morphe.patcher.patch.bytecodePatch
 import app.morphe.patcher.util.proxy.mutableTypes.MutableField.Companion.toMutable
 import app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.Companion.toMutable
 import com.android.tools.smali.dexlib2.AccessFlags
 import com.android.tools.smali.dexlib2.Opcode
+import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.WideLiteralInstruction
+import com.android.tools.smali.dexlib2.iface.reference.MethodReference
 import com.android.tools.smali.dexlib2.immutable.ImmutableField
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodImplementation
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodParameter
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction10x
 
-private val stringFlagCheckFingerprint =
-    Fingerprint(
-        strings = listOf("__fbt_null__"),
-        returnType = "Ljava/lang/String;",
-    )
-
-private val booleanFlagCheckFingerprint =
-    Fingerprint(
-        classFingerprint = stringFlagCheckFingerprint,
-        returnType = "Z",
-        parameters = listOf("L", "J", "Z"),
-    )
+private const val REMEMBERED_FEED_FLAG = 0x810e4c00064e2fL // 36325991576391215L
+private const val FOR_YOU_PICKER_FLAG = 0x810e4c00004e29L // 36325991575997993L
 
 private val savedFeedPrefClassFingerprint =
     Fingerprint(
@@ -62,60 +57,52 @@ val defaultFollowingForYouPatch =
         compatibleWith(COMPATIBILITY_INSTAGRAM)
 
         execute {
-            // 1. Enable Instagram's native For You + Following picker MobileConfig flags for 452.1.0.53.64:
-            //    0x810e4c00064e2fL (36325991576391215L) = remembered feed / switcher
-            //    0x810e4c00004e29L (36325991575997993L) = For You logo picker
-            val flagClass = booleanFlagCheckFingerprint.classDef
-            val flagClassType = flagClass.type
+            // 1. Patch each direct read of REMEMBERED_FEED_FLAG and FOR_YOU_PICKER_FLAG
+            //    (avoids touching the core MobileConfig class or conflicting with Piko HookFlags).
+            var patchedReads = 0
+            classes.forEach { classDef ->
+                classDef.methods.forEach { method ->
+                    val insns = method.implementation?.instructions?.toList() ?: return@forEach
+                    val insertPoints = mutableListOf<Pair<Int, Int>>()
 
-            val flagHelper =
-                ImmutableMethod(
-                    flagClassType,
-                    "pikoCheckHomeFeedFlag",
-                    listOf(ImmutableMethodParameter("J", null, "specifier")),
-                    "Z",
-                    AccessFlags.PUBLIC.value or AccessFlags.STATIC.value,
-                    null,
-                    null,
-                    ImmutableMethodImplementation(
-                        5,
-                        listOf(ImmutableInstruction10x(Opcode.RETURN_VOID)),
-                        null,
-                        null,
-                    ),
-                ).toMutable()
+                    for (i in insns.indices) {
+                        val insn = insns[i]
+                        if (insn.opcode == Opcode.CONST_WIDE && insn is WideLiteralInstruction) {
+                            val lit = insn.wideLiteral
+                            if (lit == REMEMBERED_FEED_FLAG || lit == FOR_YOU_PICKER_FLAG) {
+                                val end = minOf(insns.size - 1, i + 6)
+                                for (j in (i + 1) until end) {
+                                    val call = insns[j]
+                                    val next = insns[j + 1]
+                                    val ref = (call as? ReferenceInstruction)?.reference as? MethodReference
+                                    if (ref != null && ref.returnType == "Z" && next.opcode == Opcode.MOVE_RESULT) {
+                                        val resReg = (next as OneRegisterInstruction).registerA
+                                        insertPoints.add((j + 1) to resReg)
+                                        break
+                                    }
+                                }
+                            }
+                        }
+                    }
 
-            flagHelper.addInstructions(
-                0,
-                """
-                const-wide v0, 0x810e4c00064e2fL
-                cmp-long v2, p0, v0
-                if-eqz v2, :match
-                const-wide v0, 0x810e4c00004e29L
-                cmp-long v2, p0, v0
-                if-eqz v2, :match
-                const/4 v0, 0x0
-                return v0
-                :match
-                const/4 v0, 0x1
-                return v0
-                """.trimIndent(),
-            )
-            flagHelper.removeInstruction(flagHelper.implementation!!.instructions.size - 1)
-            flagClass.methods.add(flagHelper)
+                    if (insertPoints.isNotEmpty()) {
+                        val mutableMethod = proxy(classDef).mutableClass.methods.first {
+                            it.name == method.name &&
+                                it.returnType == method.returnType &&
+                                it.parameterTypes == method.parameterTypes
+                        }
+                        for ((moveResultIdx, resReg) in insertPoints.asReversed()) {
+                            val constInsn = if (resReg < 16) "const/4 v$resReg, 0x1" else "const/16 v$resReg, 0x1"
+                            mutableMethod.addInstructions(moveResultIdx + 1, constInsn)
+                            patchedReads++
+                        }
+                    }
+                }
+            }
 
-            booleanFlagCheckFingerprint.method.addInstructions(
-                0,
-                """
-                invoke-static/range {p2 .. p3}, $flagClassType->pikoCheckHomeFeedFlag(J)Z
-                move-result v0
-                if-eqz v0, :piko_feed_skip
-                const/4 v0, 0x1
-                return v0
-                :piko_feed_skip
-                nop
-                """.trimIndent(),
-            )
+            if (patchedReads == 0) {
+                throw PatchException("Failed to find Home feed picker MobileConfig flag reads")
+            }
 
             // 2. Default every cold launch to FOLLOWING while letting the user switch to For You
             //    or Favorites during the session via the Instagram logo dropdown.
@@ -134,13 +121,41 @@ val defaultFollowingForYouPatch =
                 ).toMutable(),
             )
 
-            getSavedFeedFingerprint.method.addInstructions(
+            val getSessionFeedHelper =
+                ImmutableMethod(
+                    prefClassType,
+                    "pikoGetSessionFeed",
+                    emptyList(),
+                    "Ljava/lang/String;",
+                    AccessFlags.PUBLIC.value or AccessFlags.STATIC.value,
+                    null,
+                    null,
+                    ImmutableMethodImplementation(
+                        1,
+                        listOf(ImmutableInstruction10x(Opcode.RETURN_VOID)),
+                        null,
+                        null,
+                    ),
+                ).toMutable()
+
+            getSessionFeedHelper.addInstructions(
                 0,
                 """
                 sget-object v0, $prefClassType->pikoSessionFeed:Ljava/lang/String;
                 if-nez v0, :piko_has_feed
                 const-string v0, "FOLLOWING"
                 :piko_has_feed
+                return-object v0
+                """.trimIndent(),
+            )
+            getSessionFeedHelper.removeInstruction(getSessionFeedHelper.implementation!!.instructions.size - 1)
+            prefClass.methods.add(getSessionFeedHelper)
+
+            getSavedFeedFingerprint.method.addInstructions(
+                0,
+                """
+                invoke-static {}, $prefClassType->pikoGetSessionFeed()Ljava/lang/String;
+                move-result-object v0
                 return-object v0
                 """.trimIndent(),
             )
