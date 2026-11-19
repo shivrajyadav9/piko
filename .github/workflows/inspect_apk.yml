@@ -36,19 +36,23 @@ jobs:
           BASE_APK=$(find /tmp/extracted -maxdepth 2 -name "*.apk" -exec sh -c 'unzip -l "$1" | grep -q "classes.dex" && echo "$1"' _ {} \; | head -n 1)
           mkdir -p /tmp/dex
           unzip -q -o "$BASE_APK" "*.dex" -d /tmp/dex
-          cat << 'EOF' > /tmp/scan.py
+          python3 -c '
           import glob, subprocess, os
-          matches = []
-          for p in sorted(glob.glob("/tmp/dex/*.dex")):
-           if b"LX/02sV;" in open(p, "rb").read(): matches.append(p)
-          print("MATCHING DEX:", matches)
+          matches = [p for p in sorted(glob.glob("/tmp/dex/*.dex")) if b"LX/02sV;" in open(p, "rb").read()]
+          print("MATCHING DEX:", [os.path.basename(m) for m in matches])
           for p in matches[:4]:
-            dn = os.path.basename(p); out = "/tmp/jadx_out_" + dn
-            subprocess.run(["/tmp/jadx/bin/jadx", "-d", out, "--no-res", "--no-imports", p], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            for root, _, files in os.walk(out):
-            for fn in sorted(files):
-              if not fn.endswith(".java") or fn == "C02sV.java": continue
-              fp = os.path.join(root, fn); txt = open(fp, errors="ignore").read(); idx = txt.find("C02sV")
-              if idx != -1: print(f"=== MATCH FILE: {fp} ({dn}) ==="); print(txt[max(0, idx - 2000):min(len(txt), idx + 2000)])
-          EOF
-          python3 /tmp/scan.py
+              dn = os.path.basename(p)
+              out = "/tmp/jadx_out_" + dn
+              subprocess.run(["/tmp/jadx/bin/jadx", "-d", out, "--no-res", "--no-imports", p], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+              for root, _, files in os.walk(out):
+                  for fn in sorted(files):
+                      if not fn.endswith(".java") or fn == "C02sV.java":
+                          continue
+                      fp = os.path.join(root, fn)
+                      txt = open(fp, errors="ignore").read()
+                      idx = txt.find("C02sV")
+                      if idx != -1:
+                          print("=== MATCH FILE:", fp, dn, "===")
+                          print(txt[max(0, idx - 1500):min(len(txt), idx + 2500)])
+          '
+          
