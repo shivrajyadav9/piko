@@ -6,12 +6,14 @@ import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
 import app.morphe.patcher.extensions.InstructionExtensions.getInstruction
 import app.morphe.patcher.extensions.InstructionExtensions.removeInstruction
 import app.morphe.patcher.patch.bytecodePatch
+import app.morphe.patcher.util.proxy.mutableTypes.MutableField.Companion.toMutable
 import app.morphe.patcher.util.proxy.mutableTypes.MutableMethod
 import com.android.tools.smali.dexlib2.AccessFlags
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
 import com.android.tools.smali.dexlib2.iface.reference.MethodReference
+import com.android.tools.smali.dexlib2.immutable.ImmutableField
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodImplementation
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodParameter
@@ -42,7 +44,7 @@ internal val navbarIconLambdaFingerprint = Fingerprint(
 @Suppress("unused")
 val drawerPikoSettingsIconPatch = bytecodePatch(
     name = "Drawer Piko settings icon",
-    description = "Moves Piko Settings from the drawer footer list to a bottom-right Piko gear icon directly below the account switcher button.",
+    description = "Moves Piko Settings from the drawer footer list to a bottom-right Piko gear icon with balanced left/right margins, keeping Explore's normal gear icon untouched.",
 ) {
     compatibleWith(COMPATIBILITY_NEW_X)
 
@@ -50,6 +52,24 @@ val drawerPikoSettingsIconPatch = bytecodePatch(
         val drawerClass = drawerIconButtonFingerprint.classDef
         val method = drawerIconButtonFingerprint.method
 
+        // 0. Increase left/right padding on the drawer bottom Row from 4.dp to 16.dp
+        val paddingIndex = method.implementation!!.instructions.indexOfFirst { insn ->
+            insn.opcode == Opcode.INVOKE_STATIC_RANGE &&
+                ((insn as ReferenceInstruction).reference as? MethodReference)?.let {
+                    it.definingClass == "Landroidx/compose/foundation/layout/c;" && it.name == "K"
+                } == true
+        }
+        if (paddingIndex != -1) {
+            method.addInstructions(
+                paddingIndex,
+                """
+                    const/high16 v13, 0x41800000
+                    const/high16 v15, 0x41800000
+                """,
+            )
+        }
+
+        // 1. In drawer/a->g, replace Arrangement.Start (n->a) with Arrangement.SpaceBetween (n->g)
         val arrangementIndex = method.implementation!!.instructions.indexOfFirst { insn ->
             insn.opcode == Opcode.SGET_OBJECT &&
                 (insn as ReferenceInstruction).reference.toString()
@@ -65,6 +85,21 @@ val drawerPikoSettingsIconPatch = bytecodePatch(
             )
         }
 
+        // 1b. Tag field on navbars/a so ONLY our drawer instance uses the Piko P-gear icon (Explore keeps normal o-gear)
+        val navClass = navbarIconLambdaFingerprint.classDef
+        navClass.fields.add(
+            ImmutableField(
+                navClass.type,
+                "pikoUsePikoIcon",
+                "Z",
+                AccessFlags.PUBLIC.value,
+                null,
+                null,
+                null,
+            ).toMutable(),
+        )
+
+        // 2. Helper method to render the second IconButton inside the same Row using tagged navbars/a(4, false)
         val helperMethod = MutableMethod(
             ImmutableMethod(
                 drawerClass.type,
@@ -94,6 +129,8 @@ val drawerPikoSettingsIconPatch = bytecodePatch(
                 const/4 v2, 0x4
                 const/4 v3, 0x0
                 invoke-direct {v0, v2, v3}, Lcom/x/compose/navbars/a;-><init>(BZ)V
+                const/4 v2, 0x1
+                iput-boolean v2, v0, Lcom/x/compose/navbars/a;->pikoUsePikoIcon:Z
                 const v2, -0x16a6685e
                 invoke-static {v2, v0, p0}, Landroidx/compose/runtime/internal/h;->e(ILkotlin/Function;Landroidx/compose/runtime/Composer;)Landroidx/compose/runtime/internal/g;
                 move-result-object v6
@@ -111,6 +148,7 @@ val drawerPikoSettingsIconPatch = bytecodePatch(
         )
         drawerClass.methods.add(helperMethod)
 
+        // 3. Call pikoDrawerGear(v8) right after the theme toggle IconButton (b0.h) inside the Row (branchless)
         val b0Index = method.implementation!!.instructions.indexOfFirst { insn ->
             insn.opcode == Opcode.INVOKE_STATIC_RANGE &&
                 ((insn as ReferenceInstruction).reference as MethodReference).let {
@@ -126,11 +164,13 @@ val drawerPikoSettingsIconPatch = bytecodePatch(
             """,
         )
 
+        // 4. Helper method to resolve Piko Settings icon ONLY when navbars/a.pikoUsePikoIcon == true
         val iconHelperMethod = MutableMethod(
             ImmutableMethod(
                 drawerClass.type,
                 "pikoGetDrawerIcon",
                 listOf(
+                    ImmutableMethodParameter("Lcom/x/compose/navbars/a;", null, null),
                     ImmutableMethodParameter("Lcom/x/icons/b;", null, null),
                 ),
                 "Lcom/x/icons/b;",
@@ -138,7 +178,7 @@ val drawerPikoSettingsIconPatch = bytecodePatch(
                 null,
                 null,
                 ImmutableMethodImplementation(
-                    4,
+                    5,
                     listOf(ImmutableInstruction10x(Opcode.RETURN_VOID)),
                     null,
                     null,
@@ -148,6 +188,8 @@ val drawerPikoSettingsIconPatch = bytecodePatch(
         iconHelperMethod.addInstructions(
             0,
             """
+                iget-boolean v0, p0, Lcom/x/compose/navbars/a;->pikoUsePikoIcon:Z
+                if-eqz v0, :piko_keep_ca
                 invoke-static {}, Lapp/morphe/extension/newx/settings/PikoSettingsIcon;->getDrawableId()I
                 move-result v0
                 if-eqz v0, :piko_keep_ca
@@ -155,7 +197,7 @@ val drawerPikoSettingsIconPatch = bytecodePatch(
                 invoke-direct {v1, v0}, Lcom/x/icons/b;-><init>(I)V
                 return-object v1
                 :piko_keep_ca
-                return-object p0
+                return-object p1
             """,
         )
         iconHelperMethod.removeInstruction(iconHelperMethod.implementation!!.instructions.size - 1)
@@ -171,12 +213,13 @@ val drawerPikoSettingsIconPatch = bytecodePatch(
             navMethod.addInstructions(
                 caIndex + 1,
                 """
-                    invoke-static {v$iconReg}, Lcom/x/main/drawer/a;->pikoGetDrawerIcon(Lcom/x/icons/b;)Lcom/x/icons/b;
+                    invoke-static {p0, v$iconReg}, Lcom/x/main/drawer/a;->pikoGetDrawerIcon(Lcom/x/compose/navbars/a;Lcom/x/icons/b;)Lcom/x/icons/b;
                     move-result-object v$iconReg
                 """,
             )
         }
 
+        // 5. Hide the "Piko Settings" text row by hooking index 0 of drawer/a->u
         val rowGuardMethod = MutableMethod(
             ImmutableMethod(
                 drawerClass.type,
