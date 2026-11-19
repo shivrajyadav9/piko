@@ -28,6 +28,7 @@ import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstructio
 
 private const val REMEMBERED_FEED_FLAG = 0x810e4c00064e2fL // 36325991576391215L
 private const val FOR_YOU_PICKER_FLAG = 0x810e4c00004e29L // 36325991575997993L
+private const val TITLE_SWITCHER_CLASS = "Lcom/instagram/actionbar/ActionBarTitleViewSwitcher;"
 
 private val savedFeedPrefClassFingerprint =
     Fingerprint(
@@ -52,13 +53,12 @@ private val setSavedFeedFingerprint =
 val defaultFollowingForYouPatch =
     bytecodePatch(
         name = "Start Home on Following & For You menu",
-        description = "Opens Instagram directly into the Following feed on launch and adds For You to the Instagram logo dropdown alongside Following and Favorites.",
+        description = "Opens Instagram directly into the Following feed on launch, adds For You to the Instagram logo dropdown alongside Following and Favorites, and keeps the Instagram logo in the Home header.",
     ) {
         compatibleWith(COMPATIBILITY_INSTAGRAM)
 
         execute {
-            // 1. Patch each direct read of REMEMBERED_FEED_FLAG and FOR_YOU_PICKER_FLAG
-            //    (avoids touching the core MobileConfig class or conflicting with Piko HookFlags).
+            // 1. Patch each direct read of REMEMBERED_FEED_FLAG and FOR_YOU_PICKER_FLAG.
             var patchedReads = 0
             classDefForEach { classDef ->
                 classDef.methods.forEach { method ->
@@ -164,6 +164,96 @@ val defaultFollowingForYouPatch =
                 0,
                 """
                 sput-object p1, $prefClassType->pikoSessionFeed:Ljava/lang/String;
+                """.trimIndent(),
+            )
+
+            // 3. Keep the Instagram logo in the Home header instead of replacing it with "Following"/"For You".
+            val switcherClass = mutableClassDefBy(TITLE_SWITCHER_CLASS)
+            val labelMethod = switcherClass.methods.firstOrNull {
+                !AccessFlags.STATIC.isSet(it.accessFlags) &&
+                    it.returnType == "V" &&
+                    it.parameterTypes.map(CharSequence::toString) == listOf("Z", "Ljava/lang/String;")
+            } ?: throw PatchException("Could not find label method in $TITLE_SWITCHER_CLASS")
+
+            val logoMethod = switcherClass.methods.firstOrNull {
+                !AccessFlags.STATIC.isSet(it.accessFlags) &&
+                    it.returnType == "V" &&
+                    it.parameterTypes.map(CharSequence::toString) == listOf("Ljava/lang/String;", "Ljava/lang/String;", "Z", "Z")
+            } ?: throw PatchException("Could not find logo method in $TITLE_SWITCHER_CLASS")
+
+            val keepLogoHelper =
+                ImmutableMethod(
+                    TITLE_SWITCHER_CLASS,
+                    "pikoKeepLogo",
+                    listOf(ImmutableMethodParameter("Landroid/view/View;", null, "view")),
+                    "I",
+                    AccessFlags.PUBLIC.value or AccessFlags.STATIC.value,
+                    null,
+                    null,
+                    ImmutableMethodImplementation(
+                        5,
+                        listOf(ImmutableInstruction10x(Opcode.RETURN_VOID)),
+                        null,
+                        null,
+                    ),
+                ).toMutable()
+
+            keepLogoHelper.addInstructions(
+                0,
+                """
+                invoke-virtual {p0}, Landroid/view/View;->getParent()Landroid/view/ViewParent;
+                move-result-object v0
+                const/4 v1, 0x0
+                :loop
+                if-eqz v0, :not_home
+                const/4 v2, 0x6
+                if-ge v1, v2, :not_home
+                invoke-virtual {v0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+                move-result-object v2
+                invoke-virtual {v2}, Ljava/lang/Class;->getName()Ljava/lang/String;
+                move-result-object v2
+                const-string v3, "instagram.features.feed.mainfeed.actionbar.MainFeedActionBar"
+                invoke-virtual {v3, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+                move-result v2
+                if-nez v2, :is_home
+                invoke-interface {v0}, Landroid/view/ViewParent;->getParent()Landroid/view/ViewParent;
+                move-result-object v0
+                add-int/lit8 v1, v1, 0x1
+                goto :loop
+                :is_home
+                instance-of v0, p0, Landroid/widget/ViewAnimator;
+                if-eqz v0, :show_logo
+                check-cast p0, Landroid/widget/ViewAnimator;
+                invoke-virtual {p0}, Landroid/widget/ViewAnimator;->getDisplayedChild()I
+                move-result v0
+                if-nez v0, :show_logo
+                const/4 v0, 0x2
+                return v0
+                :show_logo
+                const/4 v0, 0x1
+                return v0
+                :not_home
+                const/4 v0, 0x0
+                return v0
+                """.trimIndent(),
+            )
+            keepLogoHelper.removeInstruction(keepLogoHelper.implementation!!.instructions.size - 1)
+            switcherClass.methods.add(keepLogoHelper)
+
+            labelMethod.addInstructions(
+                0,
+                """
+                invoke-static/range {p0 .. p0}, $TITLE_SWITCHER_CLASS->pikoKeepLogo(Landroid/view/View;)I
+                move-result v0
+                if-eqz v0, :piko_show_name
+                add-int/lit8 v0, v0, -0x1
+                if-nez v0, :piko_logo_shown
+                const/4 v0, 0x0
+                invoke-virtual {p0, v0, v0, v0, p1}, $TITLE_SWITCHER_CLASS->${logoMethod.name}(Ljava/lang/String;Ljava/lang/String;ZZ)V
+                :piko_logo_shown
+                return-void
+                :piko_show_name
+                nop
                 """.trimIndent(),
             )
         }
