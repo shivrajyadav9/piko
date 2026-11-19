@@ -37,22 +37,6 @@ jobs:
           mkdir -p /tmp/dex
           unzip -q -o "$BASE_APK" "*.dex" -d /tmp/dex
           python3 -c '
-          import subprocess, os, re
-          for dn in ["classes2.dex"]:
-              p = "/tmp/dex/" + dn 
-              if not os.path.exists(p): continue
-              out = "/tmp/jadx_out_" + dn
-              subprocess.run(["/tmp/jadx/bin/jadx", "-d", out, "--no-res", "--no-imports", p], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-              for root, _, files in os.walk(out):
-                  for fn in sorted(files):
-                      if not fn.endswith(".java") or fn in ("C00qF.java", "C02tF.java", "C02sQ.java") or fn.startswith(("AnonymousClass000", "C000")):
-                        continue
-                      fp = os.path.join(root, fn)
-                      txt = open(fp, errors="ignore").read()
-                      for m in re.finditer(r"00qF|02tF", txt):
-                          idx = m.start()
-                          print("=== MATCH FILE:", fp, dn, "===")
-                          print(txt[max(0, idx - 1500):min(len(txt), idx + 1500)])
-                          break
+          import subprocess, os; subprocess.run(["/tmp/jadx/bin/jadx", "-d", "/tmp/jadx_out", "--no-res", "--no-imports", "--show-bad-code", "/tmp/dex/classes2.dex"]); xdir = "/tmp/jadx_out/sources/X"; [print(f"=== FILE: {xdir}/{fn} ===\n" + open(f"{xdir}/{fn}", errors="ignore").read()) for fn in sorted(os.listdir(xdir)) if fn in ("C01yY.java", "AbstractC074003ln.java", "C02tL.java") or "01yY" in fn or "03ln" in fn] if os.path.exists(xdir) else print("NO XDIR")
           '
           
