@@ -46,7 +46,7 @@ jobs:
               for root, _, files in os.walk(out):
                   for fn in sorted(files):
                       if not fn.endswith(".java") or fn in ("C02tF.java", "C02sQ.java", "MainFeedActionBar.java") or fn.startswith(("AnonymousClass000", "C000")):
-
+                        continue
                       fp = os.path.join(root, fn)
                       txt = open(fp, errors="ignore").read()
                       for m in re.finditer(r"36325991576391215L|new X\.C02tF|new X\.02tF|new X\.C02sX|new X\.02sX", txt):
