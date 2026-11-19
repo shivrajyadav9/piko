@@ -60,7 +60,7 @@ val defaultFollowingForYouPatch =
             // 1. Patch each direct read of REMEMBERED_FEED_FLAG and FOR_YOU_PICKER_FLAG
             //    (avoids touching the core MobileConfig class or conflicting with Piko HookFlags).
             var patchedReads = 0
-            classes.forEach { classDef ->
+            classDefForEach { classDef ->
                 classDef.methods.forEach { method ->
                     val insns = method.implementation?.instructions?.toList() ?: return@forEach
                     val insertPoints = mutableListOf<Pair<Int, Int>>()
@@ -86,7 +86,7 @@ val defaultFollowingForYouPatch =
                     }
 
                     if (insertPoints.isNotEmpty()) {
-                        val mutableMethod = proxy(classDef).mutableClass.methods.first {
+                        val mutableMethod = mutableClassDefBy(classDef).methods.first {
                             it.name == method.name &&
                                 it.returnType == method.returnType &&
                                 it.parameterTypes == method.parameterTypes
