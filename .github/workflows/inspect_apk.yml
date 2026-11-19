@@ -37,21 +37,21 @@ jobs:
           mkdir -p /tmp/dex
           unzip -q -o "$BASE_APK" "*.dex" -d /tmp/dex
           python3 -c '
-          import subprocess, os
-          for dn in ["classes.dex", "classes2.dex", "classes4.dex"]:
+          import subprocess, os, re
+          for dn in ["classes2.dex"]:
               p = "/tmp/dex/" + dn 
               if not os.path.exists(p): continue
               out = "/tmp/jadx_out_" + dn
               subprocess.run(["/tmp/jadx/bin/jadx", "-d", out, "--no-res", "--no-imports", p], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
               for root, _, files in os.walk(out):
                   for fn in sorted(files):
-                      if not fn.endswith(".java") or fn == "C02sV.java" or fn.startswith("AnonymousClass000") or fn.startswith("C000"): continue
+                      if not fn.endswith(".java") or fn in ("C02tF.java", "C02sQ.java", "MainFeedActionBar.java") or fn.startswith(("AnonymousClass000", "C000")):
 
                       fp = os.path.join(root, fn)
                       txt = open(fp, errors="ignore").read()
-                      idx = txt.find("02sV")
-                      if idx != -1:
+                      for m in re.finditer(r"36325991576391215L|new X\.C02tF|new X\.02tF|new X\.C02sX|new X\.02sX", txt):
+                        idx = m.start()
                           print("=== MATCH FILE:", fp, dn, "===")
-                          print(txt[max(0, idx - 1500):min(len(txt), idx + 2000)])
+                          print(txt[max(0, idx - 2000):min(len(txt), idx + 2000)])
           '
           
