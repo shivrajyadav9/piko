@@ -166,7 +166,7 @@ val drawerDimThemePatch = bytecodePatch(
                 // Insert Dim row right after the 3rd radio row ("Use device settings")
                 sheetMethod.addInstructions(
                     radioCallIndices[2] + 1,
-                    "invoke-static {v1, v2, v10}, $THEME_UI_CLASS->pikoRenderDimRow($DARK_MODE_ENUM;Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;)V",
+                    "invoke-static {v1, v2, v10}, $THEME_UI_CLASS->pikoRenderDimRow(${DARK_MODE_ENUM}Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;)V",
                 )
                 // Adjust "On" row (2nd radio row) selected state so it is unchecked when Dim is active
                 sheetMethod.addInstructions(
