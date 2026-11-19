@@ -52,6 +52,6 @@ jobs:
                       idx = txt.find("02sV")
                       if idx != -1:
                           print("=== MATCH FILE:", fp, dn, "===")
-                          print(txt[max(0, idx - 1500:min(len(txt), idx + 2000])
+                          print(txt[max(0, idx - 1500):min(len(txt), idx + 2000])
           '
           
