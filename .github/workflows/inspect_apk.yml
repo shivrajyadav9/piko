@@ -50,7 +50,7 @@ jobs:
                       fp = os.path.join(root, fn)
                       txt = open(fp, errors="ignore").read()
                       for m in re.finditer(r"36325991576391215L|new X\.C02tF|new X\.02tF|new X\.C02sX|new X\.02sX", txt):
-                        idx = m.start()
+                          idx = m.start()
                           print("=== MATCH FILE:", fp, dn, "===")
                           print(txt[max(0, idx - 2000):min(len(txt), idx + 2000)])
           '
