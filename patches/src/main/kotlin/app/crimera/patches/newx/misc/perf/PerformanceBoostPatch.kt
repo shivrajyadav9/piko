@@ -29,15 +29,8 @@ private val ENABLE_PERF_SWITCHES = setOf(
     "home_timeline_autoplay_dwell_enabled",
     "x_android_timeline_autoplay_scrolling_flag_on_low_end_soc_enabled",
     "home_timeline_prefetch_urgent_while_scrolling_enabled",
-    "x_android_timeline_cold_start_prefetch_enabled",
     "x_lite_infra_image_timeline_prefetch_enabled",
-    "x_lite_infra_system_dns_cache_enabled",
     "x_lite_infra_image_trim_memory_handler_enabled",
-    "xlite_video_playback_player_prewarm_enabled",
-    "xlite_immersive_video_surface_view_enabled",
-    "xlite_immersive_scrubbing_keyframe_snap_enabled",
-    "x_android_navigation_notifications_prefetch_enabled",
-    "xlite_browser_destination_prefetching_enabled",
 )
 
 private val DISABLE_TELEMETRY_SWITCHES = setOf(
@@ -218,11 +211,11 @@ val performanceBoostPatch = bytecodePatch(
             name = "pikoRequestMaxRefreshRate",
             params = listOf("Landroid/app/Activity;"),
             returnType = "V",
-            registerCount = 10,
+            registerCount = 15,
             smali = """
                 invoke-static {}, $MAIN_ACTIVITY_CLASS->pikoIsPerfBoostEnabled()Z
-                move-result v0
-                if-nez v0, :run
+                move-result v9
+                if-nez v9, :run
                 return-void
                 :run
                 invoke-virtual/range {p0 .. p0}, Landroid/app/Activity;->getDisplay()Landroid/view/Display;
@@ -243,34 +236,34 @@ val performanceBoostPatch = bytecodePatch(
                 const/4 v7, 0x0
                 :loop
                 if-ge v7, v6, :apply
-                aget-object v0, v2, v7
-                invoke-virtual {v0}, Landroid/view/Display${'$'}Mode;->getPhysicalWidth()I
-                move-result v1
-                if-ne v1, v3, :next
-                invoke-virtual {v0}, Landroid/view/Display${'$'}Mode;->getPhysicalHeight()I
-                move-result v1
-                if-ne v1, v4, :next
-                invoke-virtual {v0}, Landroid/view/Display${'$'}Mode;->getRefreshRate()F
-                move-result v1
+                aget-object v8, v2, v7
+                invoke-virtual {v8}, Landroid/view/Display${'$'}Mode;->getPhysicalWidth()I
+                move-result v9
+                if-ne v9, v3, :next
+                invoke-virtual {v8}, Landroid/view/Display${'$'}Mode;->getPhysicalHeight()I
+                move-result v9
+                if-ne v9, v4, :next
+                invoke-virtual {v8}, Landroid/view/Display${'$'}Mode;->getRefreshRate()F
+                move-result v10
                 invoke-virtual {v5}, Landroid/view/Display${'$'}Mode;->getRefreshRate()F
-                move-result v8
-                cmpl-float v1, v1, v8
-                if-lez v1, :next
-                move-object v5, v0
+                move-result v11
+                cmpl-float v9, v10, v11
+                if-lez v9, :next
+                move-object v5, v8
                 :next
                 add-int/lit8 v7, v7, 0x1
                 goto :loop
                 :apply
                 invoke-virtual/range {p0 .. p0}, Landroid/app/Activity;->getWindow()Landroid/view/Window;
-                move-result-object v0
-                if-eqz v0, :done
-                invoke-virtual {v0}, Landroid/view/Window;->getAttributes()Landroid/view/WindowManager${'$'}LayoutParams;
-                move-result-object v1
-                if-eqz v1, :done
+                move-result-object v12
+                if-eqz v12, :done
+                invoke-virtual {v12}, Landroid/view/Window;->getAttributes()Landroid/view/WindowManager${'$'}LayoutParams;
+                move-result-object v13
+                if-eqz v13, :done
                 invoke-virtual {v5}, Landroid/view/Display${'$'}Mode;->getModeId()I
-                move-result v2
-                iput v2, v1, Landroid/view/WindowManager${'$'}LayoutParams;->preferredDisplayModeId:I
-                invoke-virtual {v0, v1}, Landroid/view/Window;->setAttributes(Landroid/view/WindowManager${'$'}LayoutParams;)V
+                move-result v9
+                iput v9, v13, Landroid/view/WindowManager${'$'}LayoutParams;->preferredDisplayModeId:I
+                invoke-virtual {v12, v13}, Landroid/view/Window;->setAttributes(Landroid/view/WindowManager${'$'}LayoutParams;)V
                 :done
                 return-void
             """.trimIndent(),
