@@ -4,6 +4,7 @@ import app.crimera.patches.instagram.utils.Constants.COMPATIBILITY_INSTAGRAM
 import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
 import app.morphe.patcher.extensions.InstructionExtensions.removeInstruction
 import app.morphe.patcher.fingerprint
+import app.morphe.patcher.patch.PatchException
 import app.morphe.patcher.patch.bytecodePatch
 import app.morphe.patcher.util.proxy.mutableTypes.MutableField.Companion.toMutable
 import app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.Companion.toMutable
@@ -67,13 +68,13 @@ val hideForYouVerticalReelsPatch = bytecodePatch(
             .firstOrNull { candidateType ->
                 val cls = classDefByOrNull(candidateType) ?: return@firstOrNull false
                 cls.fields.any { it.type == CLIPS_NETEGO_CLASS } && cls.fields.any { it.type == MEDIA_CLASS }
-            } ?: return@execute
+            } ?: throw PatchException("HideForYouVerticalReelsPatch: missing feedItemType")
 
         resolvedFeedItemType = feedItemType
         val feedItemClassDef = classDefBy(feedItemType)
         val mutableFeedItem = mutableClassDefBy(feedItemClassDef)
 
-        val mediaOrAdField = feedItemClassDef.fields.firstOrNull { it.type == MEDIA_CLASS } ?: return@execute
+        val mediaOrAdField = feedItemClassDef.fields.firstOrNull { it.type == MEDIA_CLASS } ?: throw PatchException("HideForYouVerticalReelsPatch: missing mediaOrAdField")
         val clipsNetegoField = feedItemClassDef.fields.firstOrNull { it.type == CLIPS_NETEGO_CLASS }
 
         // Resolve explore_story wrapper class and its Media fields
@@ -115,9 +116,9 @@ val hideForYouVerticalReelsPatch = bytecodePatch(
             return null
         }
 
-        val mediaTypeGetter = resolveMediaIntGetter(HASH_MEDIA_TYPE) ?: return@execute
-        val originalHeightGetter = resolveMediaIntGetter(HASH_ORIGINAL_HEIGHT) ?: return@execute
-        val originalWidthGetter = resolveMediaIntGetter(HASH_ORIGINAL_WIDTH) ?: return@execute
+        val mediaTypeGetter = resolveMediaIntGetter(HASH_MEDIA_TYPE) ?: throw PatchException("HideForYouVerticalReelsPatch: missing mediaTypeGetter")
+        val originalHeightGetter = resolveMediaIntGetter(HASH_ORIGINAL_HEIGHT) ?: throw PatchException("HideForYouVerticalReelsPatch: missing originalHeightGetter")
+        val originalWidthGetter = resolveMediaIntGetter(HASH_ORIGINAL_WIDTH) ?: throw PatchException("HideForYouVerticalReelsPatch: missing originalWidthGetter")
 
         // 3. Add static fields on FeedItem for active feed mode and Piko BooleanSetting
         mutableFeedItem.fields.add(
@@ -336,28 +337,14 @@ val hideForYouVerticalReelsPatch = bytecodePatch(
             }
         }
 
-        // 5. Hook Home feed response parser ("pull_to_refresh_window_ms", "feed_items") after FeedItem parse calls
-        val homeResponseMethod = homeFeedResponseFingerprint.method
-        val responseInsns = homeResponseMethod.implementation!!.instructions
-        val parseCallSites = mutableListOf<Pair<Int, Int>>()
-        for (i in 0 until responseInsns.size - 1) {
-            val insn = responseInsns[i]
-            val next = responseInsns[i + 1]
-            val ref = (insn as? ReferenceInstruction)?.reference as? MethodReference ?: continue
-            if (ref.definingClass == feedItemType && ref.returnType == feedItemType && next.opcode == Opcode.MOVE_RESULT_OBJECT) {
-                val reg = (next as OneRegisterInstruction).registerA
-                parseCallSites.add((i + 2) to reg)
-            }
-        }
-        for ((insertIdx, reg) in parseCallSites.asReversed()) {
-            homeResponseMethod.addInstructions(
-                insertIdx,
-                """
-                    invoke-static/range {v$reg .. v$reg}, $feedItemType->pikoFilterFeedItem($feedItemType)$feedItemType
-                    move-result-object v$reg
-                """.trimIndent(),
-            )
-        }
+   // 5. Hook FeedItem static parseFromJsonParser helper to catch home feed, streaming For You, and cache items
+   val parseHelperMethod = mutableFeedItem.methods.firstOrNull { AccessFlags.STATIC.isSet(it.accessFlags) && it.returnType == feedItemType && it.implementation?.instructions?.any { insn -> ((insn as? ReferenceInstruction)?.reference as? MethodReference)?.name == "parseFromJsonParser" } == true } ?: throw PatchException("HideForYouVerticalReelsPatch: missing parseFromJsonParser helper")
+   val insns = parseHelperMethod.implementation?.instructions ?: throw PatchException("HideForYouVerticalReelsPatch: missing parseFromJsonParser instructions")
+   val retIndices = insns.mapIndexedNotNull { idx, insn -> if (insn.opcode == Opcode.RETURN_OBJECT) idx else null }.reversed()
+   for (idx in retIndices) {
+       val reg = (insns[idx] as OneRegisterInstruction).registerA
+       parseHelperMethod.addInstructions(idx, "invoke-static/range {v$reg .. v$reg}, $feedItemType->pikoFilterFeedItem($feedItemType)$feedItemType\nmove-result-object v$reg")
+   }
     }
 
     finalize {
