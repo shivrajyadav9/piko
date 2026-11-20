@@ -35,7 +35,6 @@ val classicReelHeaderPatch = bytecodePatch(
     var resolvedBinderType: String? = null
 
     execute {
-        // 1. Locate the feed row type enum containing LITHO_FULL_HEIGHT_SINGLE_MEDIA
         var rowTypeEnumClass: String? = null
         var fullHeightFieldName: String? = null
 
@@ -65,8 +64,6 @@ val classicReelHeaderPatch = bytecodePatch(
         val fhField = fullHeightFieldName
             ?: throw PatchException("ClassicReelHeaderPatch: could not find field for LITHO_FULL_HEIGHT_SINGLE_MEDIA")
 
-        // 2. Locate FeedFullHeightMediaBinderGroup (has buildRowViewTypes referencing LITHO_FULL_HEIGHT_SINGLE_MEDIA
-        //    and a static gate method (L...;, <self>, Ljava/lang/String;)Z)
         var targetBinderType: String? = null
         var targetGateMethodName: String? = null
 
@@ -100,7 +97,6 @@ val classicReelHeaderPatch = bytecodePatch(
         resolvedBinderType = binderType
         val mutableBinder = mutableClassDefBy(classDefBy(binderType))
 
-        // 3. Add BooleanSetting field & helpers on FeedFullHeightMediaBinderGroup
         mutableBinder.fields.add(
             ImmutableField(
                 binderType,
@@ -176,7 +172,6 @@ val classicReelHeaderPatch = bytecodePatch(
             """.trimIndent(),
         )
 
-        // 4. Hook the full-height gate method at index 0 to return false when toggle is ON
         val gateMethod = mutableBinder.methods.first {
             it.name == gateMethodName &&
                 AccessFlags.STATIC.isSet(it.accessFlags) &&
