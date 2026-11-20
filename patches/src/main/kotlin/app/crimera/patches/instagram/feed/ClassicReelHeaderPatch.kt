@@ -12,7 +12,9 @@ import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.builder.MutableMethodImplementation
 import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction10x
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.WideLiteralInstruction
 import com.android.tools.smali.dexlib2.iface.reference.FieldReference
+import com.android.tools.smali.dexlib2.iface.reference.MethodReference
 import com.android.tools.smali.dexlib2.iface.reference.StringReference
 import com.android.tools.smali.dexlib2.immutable.ImmutableField
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
@@ -189,6 +191,57 @@ val classicReelHeaderPatch = bytecodePatch(
                 :piko_orig
             """.trimIndent(),
         )
+
+// 5. Hook standard Home feed overlay-header gates (X.00NT.A0D and X.03rF.A09).
+val overlayHeaderCheckSmali = "invoke-static {}, $binderType->pikoIsClassicReelHeaderEnabled()Z\nmove-result v0\nif-eqz v0, :piko_orig\nconst/4 v0, 0x0\nreturn v0\n:piko_orig"
+        var ntGateClassType: String? = null
+var ntGateMethodName: String? = null
+var rowHelperType: String? = null
+var rowHelperMethodName: String? = null
+
+classDefForEach { cls ->
+    if (ntGateClassType == null) {
+    val ntMethod = cls.methods.firstOrNull { m ->
+        m.returnType == "Z" && m.parameters.size == 2 && m.parameters[1].type == "Ljava/lang/String;" && m.implementation?.instructions?.any { insn -> insn is WideLiteralInstruction && insn.wideLiteral == 36321275702687784L } == true
+    }
+    if (ntMethod != null) {
+        ntGateClassType = cls.type
+        ntGateMethodName = ntMethod.name
+    }
+}
+if (rowHelperType == null) {
+    for (m in cls.methods) {
+        if (!AccessFlags.STATIC.isSet(m.accessFlags) || m.returnType != enumType) continue
+        val insns = m.implementation?.instructions ?: continue
+        val refsFhField = insns.any { insn ->
+            val fRef = (insn as? ReferenceInstruction)?.reference as? FieldReference
+            fRef != null && fRef.definingClass == enumType && fRef.name == fhField
+        }
+        if (!refsFhField) continue
+        val invokedHelper = insns.firstNotNullOfOrNull { insn ->
+            val mRef = (insn as? ReferenceInstruction)?.reference as? MethodReference
+            if (mRef != null && mRef.definingClass == cls.type && mRef.returnType == "Z" && mRef.parameterTypes.size == 1) {
+                cls.methods.firstOrNull { target -> !AccessFlags.STATIC.isSet(target.accessFlags) && target.name == mRef.name && target.returnType == "Z" && target.parameters.size == 1 }
+            } else null
+        }
+        if (invokedHelper != null) {
+            rowHelperType = cls.type
+            rowHelperMethodName = invokedHelper.name
+            break
+        }
+    }
+}
+}
+val resolvedNtClassType = ntGateClassType ?: throw PatchException("ClassicReelHeaderPatch: could not find 00NT.A0D overlay header gate")
+val resolvedNtMethodName = ntGateMethodName ?: throw PatchException("ClassicReelHeaderPatch: could not find 00NT.A0D overlay header gate")
+val mutableNtClass = mutableClassDefBy(classDefBy(resolvedNtClassType))
+val mutableNtMethod = mutableNtClass.methods.first { it.name == resolvedNtMethodName && it.returnType == "Z" && it.parameters.size == 2 && it.parameters[1].type == "Ljava/lang/String;" }
+mutableNtMethod.addInstructions(0, overlayHeaderCheckSmali)
+val resolvedRowHelperType = rowHelperType ?: throw PatchException("ClassicReelHeaderPatch: could not find 03rF.A09 overlay header gate")
+val resolvedRowHelperMethodName = rowHelperMethodName ?: throw PatchException("ClassicReelHeaderPatch: could not find 03rF.A09 overlay header gate")
+val mutableRowHelperClass = mutableClassDefBy(classDefBy(resolvedRowHelperType))
+val mutableRowHelperMethod = mutableRowHelperClass.methods.first { !AccessFlags.STATIC.isSet(it.accessFlags) && it.name == resolvedRowHelperMethodName && it.returnType == "Z" && it.parameters.size == 1 }
+mutableRowHelperMethod.addInstructions(0, overlayHeaderCheckSmali)
     }
 
     finalize {
