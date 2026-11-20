@@ -36,16 +36,16 @@ jobs:
           BASE_APK=$(find /tmp/extracted -maxdepth 2 -name "*.apk" -exec sh -c 'unzip -l "$1" | grep -q "classes.dex" && echo "$1"' _ {} \; | head -n 1)
           mkdir -p /tmp/dex
           unzip -q -o "$BASE_APK" "classes2.dex" -d /tmp/dex
-        mkdir -p /tmp/out1 /tmp/out2
-        /tmp/jadx/bin/jadx --rename-flags "none" --single-class "X.01kK" -d /tmp/out1 /tmp/dex/classes2.dex || true
-        /tmp/jadx/bin/jadx --rename-flags "none" --single-class "com.instagram.feed.media.Media" -d /tmp/out2 /tmp/dex/classes2.dex || true
-        F1=$(find /tmp/out1 -name "*.java" | head -n 1)
-        F2=$(find /tmp/out2 -name "Media.java" | head -n 1)
-        echo "=== X.01kK.java lines 1000-1120 ==="
-        [ -n "$F1" ] && nl -ba "$F1" | sed -n '1000,1120p' || echo "F1 not found"
-        echo "=== X.01kK.java 00WG refs ==="
-        [ -n "$F1" ] && grep -nE "00WG\.A0(h|g|W)" "$F1" || true
-        echo "=== Media.java EcT( ==="
-        [ -n "$F2" ] && grep -n -A 25 "EcT(" "$F2" || true
-        echo "=== Media.java AMJ( ==="
-        [ -n "$F2" ] && grep -n -A 25 "AMJ(" "$F2" || true
+          mkdir -p /tmp/out1 /tmp/out2
+            /tmp/jadx/bin/jadx --rename-flags "none" --single-class "X.01kK" -d /tmp/out1 /tmp/dex/classes2.dex || true
+            /tmp/jadx/bin/jadx --rename-flags "none" --single-class "com.instagram.feed.media.Media" -d /tmp/out2 /tmp/dex/classes2.dex || true
+            F1=$(find /tmp/out1 -name "*.java" | head -n 1)
+            F2=$(find /tmp/out2 -name "Media.java" | head -n 1)
+            echo "=== X.01kK.java lines 1000-1120 ==="
+            [ -n "$F1" ] && nl -ba "$F1" | sed -n '1000,1120p' || echo "F1 not found"
+            echo "=== X.01kK.java 00WG refs ==="
+            [ -n "$F1" ] && grep -nE "00WG\.A0(h|g|W)" "$F1" || true
+            echo "=== Media.java EcT( ==="
+            [ -n "$F2" ] && grep -n -A 25 "EcT(" "$F2" || true
+            echo "=== Media.java AMJ( ==="
+            [ -n "$F2" ] && grep -n -A 25 "AMJ(" "$F2" || true
