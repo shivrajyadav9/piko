@@ -37,5 +37,69 @@ jobs:
           mkdir -p /tmp/dex
           unzip -q -o "$BASE_APK" "classes2.dex" "classes3.dex" -d /tmp/dex
           export DEXDUMP=$(command -v dexdump || find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/build-tools" -name dexdump 2>/dev/null | sort -V | tail -n 1)
-          for c in X.02cT X.03qZ X.00sN; do for d in classes2.dex classes3.dex; do rm -rf /tmp/j; /tmp/jadx/bin/jadx --rename-flags "none" --single-class "$c" -d /tmp/j "/tmp/dex/$d" >/dev/null 2>&1 || true; f=$(find /tmp/j -name "*.java" 2>/dev/null | head -n 1); if [ -s "$f" ]; then echo "=== $c ($d) ==="; if [ "$c" = "X.00sN" ]; then head -n 120 "$f"; else cat "$f"; fi; fi; done; done; echo "=== DEXDUMP 3f4ccccd ==="; "$DEXDUMP" -d /tmp/dex/classes2.dex | awk '/Class descriptor/{cls=$0} /name +:/{m=$0} /3f4ccccd/{if(cls ~ /MediaExtKt|X\/00sN|X\/02cT|com\/instagram\/feed\//) print "DEX_MATCH:", cls, "|", m, "|", $0}'
+          python3 - <<EOF
+          import os, subprocess
+          q = chr(39)
+          dexdump = os.environ["DEXDUMP"]
+          matches = []
+          for dex in ("classes2.dex", "classes3.dex"):
+            dp = "/tmp/dex/" + dex
+            if not os.path.exists(dp):
+              continue
+            p = subprocess.Popen([dexdump, "-d", dp], stdout=subprocess.PIPE, text=True, errors="replace")
+            cls = name = sig = ""
+            in_m = has_v = ref_m = False
+            for line in p.stdout:
+              if line.startswith("Class descriptor  : " + q):
+                if in_m and has_v and (sig.endswith(")F") or cls == "Lcom/instagram/feed/media/Media;" or ref_m):
+                  matches.append((dex, cls, name, sig, cls == "Lcom/instagram/feed/media/Media;" or ref_m))
+                in_m = False
+                cls = line.split(q, 2)[1]
+              elif line.startswith("      name          : " + q):
+                if in_m and has_v and (sig.endswith(")F") or cls == "Lcom/instagram/feed/media/Media;" or ref_m):
+                  matches.append((dex, cls, name, sig, cls == "Lcom/instagram/feed/media/Media;" or ref_m))
+                in_m = True
+                name = line.split(q, 2)[1]
+                sig = ""
+                has_v = ref_m = False
+              elif in_m:
+                if line.startswith("      type          : " + q):
+                  sig = line.split(q, 2)[1]
+                else:
+                  if "3f4ccccd" in line:
+                    has_v = True
+                  if "Lcom/instagram/feed/media/Media;" in line or "LX/02cT;" in line:
+                    ref_m = True
+            if in_m and has_v and (sig.endswith(")F") or cls == "Lcom/instagram/feed/media/Media;" or ref_m):
+              matches.append((dex, cls, name, sig, cls == "Lcom/instagram/feed/media/Media;" or ref_m))
+            p.wait()
+          print("Total matches:", len(matches))
+          for m in matches[:25]:
+            print(f"{m[0]}: {m[1]} -> {m[2]}{m[3]}")
+          prio = [m for m in matches if m[3] == "()F" or m[4]] + [m for m in matches if not (m[3] == "()F" or m[4])]
+          decomp = []
+          seen = set()
+          for m in prio:
+            if m[1] not in seen:
+              seen.add(m[1])
+              decomp.append(m)
+              if len(decomp) >= 3:
+                break
+          for idx, (dex, cls, name, sig, _) in enumerate(decomp):
+            jcls = cls[1:-1].replace("/", ".")
+            out = f"/tmp/j_{idx}"
+            subprocess.run(["rm", "-rf", out], check=False)
+            print(f"=== DECOMPILE {dex}: {jcls} ({name}{sig}) ===")
+            subprocess.run(["/tmp/jadx/bin/jadx", "--rename-flags", "none", "--single-class", jcls, "-d", out, "/tmp/dex/" + dex], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            for root, _, files in os.walk(out):
+              for fn in files:
+                if fn.endswith(".java"):
+                  with open(os.path.join(root, fn), errors="replace") as f:
+                    lines = f.readlines()
+                  for i, l in enumerate(lines):
+                    if "0.8" in l:
+                      print(f"--- {fn}:{i+1} ---")
+                      print("".join(lines[max(0, i-5):min(len(lines), i+6)]))
+          EOF
+
           
