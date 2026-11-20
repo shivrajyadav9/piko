@@ -1,6 +1,6 @@
 {
-  "created_at": "2026-11-20T11:47:37",
+  "created_at": "2026-11-20T12:12:13",
   "description": "Custom NewX patches for X 12.43.0-prod.01:\n- Home timeline gear button (32dp top-right gear icon opening custom timelines)\n- Drawer Piko settings icon (bottom-right Piko Settings gear icon in side drawer)\n- Enable blur effects\n- Instagram: Left-align Direct inbox username\n- Instagram: Start Home on Following & For You menu\n- Instagram: Hide Follow button on For You feed",
-  "download_url": "https://github.com/shivrajyadav9/piko/releases/download/v4.0.19/patches-4.0.19.mpp",
-  "version": "4.0.19"
+  "download_url": "https://github.com/shivrajyadav9/piko/releases/download/v4.0.20/patches-4.0.20.mpp",
+  "version": "4.0.20"
 }
