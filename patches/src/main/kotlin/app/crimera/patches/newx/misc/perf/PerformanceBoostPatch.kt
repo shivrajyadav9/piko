@@ -272,16 +272,10 @@ val performanceBoostPatch = bytecodePatch(
         // Hook MainActivity.onCreate(Bundle) to request max supported refresh rate
         mutableMain.methods.firstOrNull {
             it.name == "onCreate" && it.parameters.size == 1 && it.parameters[0].type == "Landroid/os/Bundle;"
-        }?.let { onCreate ->
-            val insns = onCreate.implementation!!.instructions
-            val lastRet = insns.indexOfLast { it.opcode == Opcode.RETURN_VOID }
-            if (lastRet >= 0) {
-                onCreate.addInstructions(
-                    lastRet,
-                    "invoke-static/range {p0 .. p0}, $MAIN_ACTIVITY_CLASS->pikoRequestMaxRefreshRate(Landroid/app/Activity;)V",
-                )
-            }
-        }
+        }?.addInstructions(
+            0,
+            "invoke-static/range {p0 .. p0}, $MAIN_ACTIVITY_CLASS->pikoRequestMaxRefreshRate(Landroid/app/Activity;)V",
+         )   
 
         // Override performance and telemetry feature switches at call sites
         val allSwitches = ENABLE_PERF_SWITCHES + DISABLE_TELEMETRY_SWITCHES
