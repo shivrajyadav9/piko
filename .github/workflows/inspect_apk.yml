@@ -50,7 +50,7 @@ jobs:
             cls = name = sig = ""
             in_m = has_v = ref_m = False
             for line in p.stdout:
-              if line.startswith("Class descriptor  : " + q):
+              if line.lstrip().startswith("Class descriptor") and q in line:
                 if in_m and has_v and (sig.endswith(")F") or cls == "Lcom/instagram/feed/media/Media;" or ref_m):
                   matches.append((dex, cls, name, sig, cls == "Lcom/instagram/feed/media/Media;" or ref_m))
                 in_m = False
