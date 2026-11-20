@@ -27,10 +27,11 @@ private val hazeModeFingerprint =
     Fingerprint(
         strings = listOf("x_lite_infra_haze_blur_enabled", "x_lite_infra_haze_adaptive_performance_enabled"),
     )
+private const val FLOATING_NAV_SWITCH = "android_x_lite_glass_bottom_nav_enabled"
 
 private val BLUR_FEATURE_SWITCHES =
     setOf(
-        "android_x_lite_glass_bottom_nav_enabled",
+        
         "x_android_home_timeline_new_posts_pill_blur_enabled",
         "xchat_liquid_glass_convo_header_enabled",
     )
@@ -180,13 +181,13 @@ const/4 v3, 0x0
             classDefForEach { classDef ->
                 classDef.methods.forEach { method ->
                     val insns = method.implementation?.instructions?.toList() ?: return@forEach
-                    val insertPoints = mutableListOf<Pair<Int, Int>>()
+                    val insertPoints = mutableListOf<Triple<Int, Int, Boolean>>()
 
                     for (i in insns.indices) {
                         val insn = insns[i]
                         if (insn.opcode == Opcode.CONST_STRING) {
                             val str = ((insn as ReferenceInstruction).reference as? StringReference)?.string
-                            if (str in BLUR_FEATURE_SWITCHES) {
+                            if (str in BLUR_FEATURE_SWITCHES || str == FLOATING_NAV_SWITCH) {
                                 val end = minOf(insns.size - 1, i + 6)
                                 for (j in (i + 1) until end) {
                                     val call = insns[j]
@@ -194,7 +195,7 @@ const/4 v3, 0x0
                                     val ref = (call as? ReferenceInstruction)?.reference as? MethodReference
                                     if (ref != null && ref.name == "getBoolean" && ref.returnType == "Z" && next.opcode == Opcode.MOVE_RESULT) {
                                         val resReg = (next as OneRegisterInstruction).registerA
-                                        insertPoints.add((j + 1) to resReg)
+                                        insertPoints.add(Triple(j + 1, resReg, str == FLOATING_NAV_SWITCH))
                                         break
                                     }
                                 }
@@ -208,10 +209,10 @@ const/4 v3, 0x0
                                 it.returnType == method.returnType &&
                                 it.parameterTypes == method.parameterTypes
                         }
-                        for ((moveResultIdx, resReg) in insertPoints.asReversed()) {
+                        for ((moveResultIdx, resReg, forceTrue) in insertPoints.asReversed()) {
                             mutableMethod.addInstructions(
                                 moveResultIdx + 1,
-                                """
+                                if (forceTrue) "const/4 v$resReg, 0x1" else """
                                 invoke-static {}, $hazeClassType->pikoIsBlurEnabled()Z
                                 move-result v$resReg
                                 """.trimIndent(),
