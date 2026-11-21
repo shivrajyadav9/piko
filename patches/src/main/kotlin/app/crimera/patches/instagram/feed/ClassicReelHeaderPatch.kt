@@ -274,7 +274,6 @@ val resolvedRowHelperMethodName = rowHelperMethodName ?: throw PatchException("C
 val mutableRowHelperClass = mutableClassDefBy(classDefBy(resolvedRowHelperType))
 val mutableRowHelperMethod = mutableRowHelperClass.methods.first { !AccessFlags.STATIC.isSet(it.accessFlags) && it.name == resolvedRowHelperMethodName && it.returnType == "Z" && it.parameters.size == 1 }
 mutableRowHelperMethod.addInstructions(0, overlayHeaderCheckSmali)
-    }
 
         // 6. Lower feed vertical reel aspect ratio floor from 0.8f to 0.63f.
         var patchedAspectRatio = false
@@ -307,7 +306,7 @@ mutableRowHelperMethod.addInstructions(0, overlayHeaderCheckSmali)
                             it.returnType == m.returnType &&
                             it.parameters.size == 3 &&
                             it.parameters[0].type == "Lcom/instagram/common/session/UserSession;" &&
-                            it.parameters[1].type == m.parameters[1].type &&
+                        it.parameters[1].type == m.parameters[1].type &&
                             it.parameters[2].type == "Z"
                     }
                     val mInsns = mutableMethod.implementation?.instructions ?: continue
@@ -322,7 +321,7 @@ mutableRowHelperMethod.addInstructions(0, overlayHeaderCheckSmali)
                         val nextOpcode = mInsns.getOrNull(i + 1)?.opcode
                         if (nextOpcode == Opcode.CMPG_FLOAT || nextOpcode == Opcode.CMPL_FLOAT) continue
                         val reg = (insn as OneRegisterInstruction).registerA
-                        indicesToPatch.add(i to reg)
+                          indicesToPatch.add(Pair<Int, Int>(i, reg))
                     }
                     if (indicesToPatch.isNotEmpty()) {
                         for ((i, reg) in indicesToPatch.asReversed()) {
@@ -343,7 +342,7 @@ mutableRowHelperMethod.addInstructions(0, overlayHeaderCheckSmali)
         if (!patchedAspectRatio) {
             throw PatchException("ClassicReelHeaderPatch: could not find feed media aspect ratio floor method")
         }
-
+    }
     finalize {
         val binderType = resolvedBinderType ?: return@finalize
 
