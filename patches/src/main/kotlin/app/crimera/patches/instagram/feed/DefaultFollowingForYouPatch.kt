@@ -28,6 +28,8 @@ import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstructio
 
 private const val REMEMBERED_FEED_FLAG = 0x810e4c00064e2fL // 36325991576391215L
 private const val FOR_YOU_PICKER_FLAG = 0x810e4c00004e29L // 36325991575997993L
+private const val REMEMBERED_FEED_FLAG_456 = 0x810dc800064de4L
+private const val FOR_YOU_PICKER_FLAG_456 = 0x810dc800004ddeL
 private const val TITLE_SWITCHER_CLASS = "Lcom/instagram/actionbar/ActionBarTitleViewSwitcher;"
 
 private val savedFeedPrefClassFingerprint =
@@ -69,7 +71,7 @@ val defaultFollowingForYouPatch =
                         val insn = insns[i]
                         if (insn.opcode == Opcode.CONST_WIDE && insn is WideLiteralInstruction) {
                             val lit = insn.wideLiteral
-                            if (lit == REMEMBERED_FEED_FLAG || lit == FOR_YOU_PICKER_FLAG) {
+                            if (lit == REMEMBERED_FEED_FLAG || lit == FOR_YOU_PICKER_FLAG) || lit == REMEMBERED_FEED_FLAG_456 || lit == FOR_YOU_PICKER_FLAG_456 {
                                 val end = minOf(insns.size - 1, i + 6)
                                 for (j in (i + 1) until end) {
                                     val call = insns[j]
