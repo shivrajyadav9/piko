@@ -71,7 +71,7 @@ val defaultFollowingForYouPatch =
                         val insn = insns[i]
                         if (insn.opcode == Opcode.CONST_WIDE && insn is WideLiteralInstruction) {
                             val lit = insn.wideLiteral
-                            if (lit == REMEMBERED_FEED_FLAG || lit == FOR_YOU_PICKER_FLAG) || lit == REMEMBERED_FEED_FLAG_456 || lit == FOR_YOU_PICKER_FLAG_456 {
+                            if (lit == REMEMBERED_FEED_FLAG || lit == FOR_YOU_PICKER_FLAG || lit == REMEMBERED_FEED_FLAG_456 || lit == FOR_YOU_PICKER_FLAG_456 {
                                 val end = minOf(insns.size - 1, i + 6)
                                 for (j in (i + 1) until end) {
                                     val call = insns[j]
