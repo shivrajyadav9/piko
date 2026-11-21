@@ -200,15 +200,6 @@ var rowHelperType: String? = null
 var rowHelperMethodName: String? = null
 
 classDefForEach { cls ->
-    if (ntGateClassType == null) {
-    val ntMethod = cls.methods.firstOrNull { m ->
-        m.returnType == "Z" && m.parameters.size == 2 && m.parameters[1].type == "Ljava/lang/String;" && m.implementation?.instructions?.any { insn -> insn is WideLiteralInstruction && insn.wideLiteral == 36321275702687784L } == true
-    }
-    if (ntMethod != null) {
-        ntGateClassType = cls.type
-        ntGateMethodName = ntMethod.name
-    }
-}
 if (rowHelperType == null) {
     for (m in cls.methods) {
         if (!AccessFlags.STATIC.isSet(m.accessFlags) || m.returnType != enumType) continue
@@ -227,10 +218,33 @@ if (rowHelperType == null) {
         if (invokedHelper != null) {
             rowHelperType = cls.type
             rowHelperMethodName = invokedHelper.name
+                        val invokedNtGate = insns.firstNotNullOfOrNull { insn ->
+                            val mRef = (insn as? ReferenceInstruction)?.reference as? MethodReference
+                            if (mRef != null && mRef.returnType == "Z" && mRef.parameterTypes.size == 2 && mRef.parameterTypes[1].toString() == "Ljava/lang/String;") {
+                                mRef
+                            } else null
+                        }
+                        if (invokedNtGate != null) {
+                            ntGateClassType = invokedNtGate.definingClass
+                            ntGateMethodName = invokedNtGate.name
+                        }
             break
         }
     }
 }
+}
+if (ntGateClassType == null) {
+    classDefForEach { cls ->
+        if (ntGateClassType == null) {
+            val ntMethod = cls.methods.firstOrNull { m ->
+                m.returnType == "Z" && m.parameters.size == 2 && m.parameters[1].type == "Ljava/lang/String;" && m.implementation?.instructions?.any { insn -> insn is WideLiteralInstruction && insn.wideLiteral == 36321275702687784L } == true
+            }
+            if (ntMethod != null) {
+                ntGateClassType = cls.type
+                ntGateMethodName = ntMethod.name
+            }
+        }
+    }
 }
 val resolvedNtClassType = ntGateClassType ?: throw PatchException("ClassicReelHeaderPatch: could not find 00NT.A0D overlay header gate")
 val resolvedNtMethodName = ntGateMethodName ?: throw PatchException("ClassicReelHeaderPatch: could not find 00NT.A0D overlay header gate")
