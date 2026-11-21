@@ -278,36 +278,30 @@ mutableRowHelperMethod.addInstructions(0, overlayHeaderCheckSmali)
         // 6. Lower feed vertical reel aspect ratio floor from 0.8f to 0.63f.
         var patchedAspectRatio = false
         classDefForEach { cls ->
-            if (!patchedAspectRatio) {
-                for (m in cls.methods) {
-                    if (
-                        m.parameters.size != 3 ||
-                        m.parameters[0].type != "Lcom/instagram/common/session/UserSession;" ||
-                        m.parameters[2].type != "Z"
-                    ) continue
-                    val insns = m.implementation?.instructions ?: continue
-                    var has08f = false
-                    var has075f = false
-                    var hasKey = false
-                    for (insn in insns) {
-                        if (insn is NarrowLiteralInstruction) {
-                            when (insn.narrowLiteral) {
-                                0x3f4ccccd -> has08f = true
-                                0x3f400000 -> has075f = true
-                                0x17fe7936 -> hasKey = true
-                            }
-                        }
-                    }
-                    if (!has08f || !has075f || !hasKey) continue
+                   for (m in cls.methods) {
+                       if (!m.parameters.any { it.type == "Lcom/instagram/feed/media/Media;" || it.type == "Lcom/instagram/common/session/UserSession;" }) continue
+val insns = m.implementation?.instructions?.toList() ?: continue
+var has08fCmp = false
+var has075fFloor = false
+var has08fFloor = false
+for (i in insns.indices) {
+val insn = insns[i]
+val lit = (insn as? NarrowLiteralInstruction)?.narrowLiteral ?: continue
+val nextOpcode = insns.getOrNull(i + 1)?.opcode
+val isCmp = nextOpcode == Opcode.CMPG_FLOAT || nextOpcode == Opcode.CMPL_FLOAT
+if (insn.opcode == Opcode.CONST && lit == 0x3f4ccccd) {
+if (isCmp) has08fCmp = true else has08fFloor = true
+} else if (insn.opcode == Opcode.CONST_HIGH16 && lit == 0x3f400000 && !isCmp) {
+has075fFloor = true
+}
+}
+if (!has08fCmp || !has075fFloor || !has08fFloor) continue
 
                     val mutableCls = mutableClassDefBy(cls)
                     val mutableMethod = mutableCls.methods.first {
                         it.name == m.name &&
                             it.returnType == m.returnType &&
-                            it.parameters.size == 3 &&
-                            it.parameters[0].type == "Lcom/instagram/common/session/UserSession;" &&
-                        it.parameters[1].type == m.parameters[1].type &&
-                            it.parameters[2].type == "Z"
+                       it.parameterTypes == m.parameterTypes
                     }
                     val mInsns = mutableMethod.implementation?.instructions ?: continue
                     val indicesToPatch = mutableListOf<Pair<Int, Int>>()
@@ -334,10 +328,8 @@ mutableRowHelperMethod.addInstructions(0, overlayHeaderCheckSmali)
                             )
                         }
                         patchedAspectRatio = true
-                        break
                     }
                 }
-            }
         }
         if (!patchedAspectRatio) {
             throw PatchException("ClassicReelHeaderPatch: could not find feed media aspect ratio floor method")
