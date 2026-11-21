@@ -11,6 +11,8 @@ import com.android.tools.smali.dexlib2.AccessFlags
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.builder.MutableMethodImplementation
 import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction10x
+import com.android.tools.smali.dexlib2.iface.instruction.NarrowLiteralInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.WideLiteralInstruction
 import com.android.tools.smali.dexlib2.iface.reference.FieldReference
@@ -174,6 +176,22 @@ val classicReelHeaderPatch = bytecodePatch(
             """.trimIndent(),
         )
 
+        addStaticHelper(
+            name = "pikoGetMinAspectRatio",
+params = listOf("F"),
+returnType = "F",
+registerCount = 2,
+smali = """
+                invoke-static {}, $binderType->pikoIsClassicReelHeaderEnabled()Z
+                move-result v0
+                if-eqz v0, :piko_orig
+                const v0, 0x3f2147ae
+                return v0
+                :piko_orig
+                return p0
+            """.trimIndent(),
+        )
+        
         val gateMethod = mutableBinder.methods.first {
             it.name == gateMethodName &&
                 AccessFlags.STATIC.isSet(it.accessFlags) &&
@@ -257,6 +275,74 @@ val mutableRowHelperClass = mutableClassDefBy(classDefBy(resolvedRowHelperType))
 val mutableRowHelperMethod = mutableRowHelperClass.methods.first { !AccessFlags.STATIC.isSet(it.accessFlags) && it.name == resolvedRowHelperMethodName && it.returnType == "Z" && it.parameters.size == 1 }
 mutableRowHelperMethod.addInstructions(0, overlayHeaderCheckSmali)
     }
+
+        // 6. Lower feed vertical reel aspect ratio floor from 0.8f to 0.63f.
+        var patchedAspectRatio = false
+        classDefForEach { cls ->
+            if (!patchedAspectRatio) {
+                for (m in cls.methods) {
+                    if (
+                        m.parameters.size != 3 ||
+                        m.parameters[0].type != "Lcom/instagram/common/session/UserSession;" ||
+                        m.parameters[2].type != "Z"
+                    ) continue
+                    val insns = m.implementation?.instructions ?: continue
+                    var has08f = false
+                    var has075f = false
+                    var hasKey = false
+                    for (insn in insns) {
+                        if (insn is NarrowLiteralInstruction) {
+                            when (insn.narrowLiteral) {
+                                0x3f4ccccd -> has08f = true
+                                0x3f400000 -> has075f = true
+                                0x17fe7936 -> hasKey = true
+                            }
+                        }
+                    }
+                    if (!has08f || !has075f || !hasKey) continue
+
+                    val mutableCls = mutableClassDefBy(cls)
+                    val mutableMethod = mutableCls.methods.first {
+                        it.name == m.name &&
+                            it.returnType == m.returnType &&
+                            it.parameters.size == 3 &&
+                            it.parameters[0].type == "Lcom/instagram/common/session/UserSession;" &&
+                            it.parameters[1].type == m.parameters[1].type &&
+                            it.parameters[2].type == "Z"
+                    }
+                    val mInsns = mutableMethod.implementation?.instructions ?: continue
+                    val indicesToPatch = mutableListOf<Pair<Int, Int>>()
+                    for (i in mInsns.indices) {
+                        val insn = mInsns[i]
+                        val lit = (insn as? NarrowLiteralInstruction)?.narrowLiteral ?: continue
+                        val isTarget =
+                            (insn.opcode == Opcode.CONST && lit == 0x3f4ccccd) ||
+                                (insn.opcode == Opcode.CONST_HIGH16 && lit == 0x3f400000)
+                        if (!isTarget) continue
+                        val nextOpcode = mInsns.getOrNull(i + 1)?.opcode
+                        if (nextOpcode == Opcode.CMPG_FLOAT || nextOpcode == Opcode.CMPL_FLOAT) continue
+                        val reg = (insn as OneRegisterInstruction).registerA
+                        indicesToPatch.add(i to reg)
+                    }
+                    if (indicesToPatch.isNotEmpty()) {
+                        for ((i, reg) in indicesToPatch.asReversed()) {
+                            mutableMethod.addInstructions(
+                                i + 1,
+                                """
+                                    invoke-static/range {v$reg .. v$reg}, $binderType->pikoGetMinAspectRatio(F)F
+                                    move-result v$reg
+                                """.trimIndent(),
+                            )
+                        }
+                        patchedAspectRatio = true
+                        break
+                    }
+                }
+            }
+        }
+        if (!patchedAspectRatio) {
+            throw PatchException("ClassicReelHeaderPatch: could not find feed media aspect ratio floor method")
+        }
 
     finalize {
         val binderType = resolvedBinderType ?: return@finalize
