@@ -36,5 +36,6 @@ jobs:
           BASE_APK=$(find /tmp/extracted -maxdepth 2 -name "*.apk" -exec sh -c 'unzip -l "$1" | grep -q "classes.dex" && echo "$1"' _ {} \; | head -n 1)
           mkdir -p /tmp/dex
           unzip -q -o "$BASE_APK" "classes2.dex" -d /tmp/dex
-          for c in X.03y0 X.04qI X.03yK; do echo "=== $c ==="; rm -rf /tmp/j_$c; /tmp/jadx/bin/jadx --rename-flags "none" --single-class "$c" -d /tmp/j_$c /tmp/dex/classes2.dex >/dev/null || true; grep -rni -C 12 -E "0\.8f|3f4ccccd" /tmp/j_$c || echo "No match in $c"; done
-          
+          /tmp/jadx/bin/jadx --rename-flags "none" --single-class X.04c0 -d /tmp/j_04c0 /tmp/dex/classes2.dex
+          echo "=== X.04c0 ==="; head -n 150 /tmp/j_04c0/sources/X/04c0.java || true
+          echo "=== dexdump X.03yK.A03 ==="; DEXDUMP=$(command -v dexdump || find /usr/local/lib/android/sdk/build-tools -name dexdump 2>/dev/null | sort -V | tail -n 1); "$DEXDUMP" -d /tmp/dex/classes2.dex | awk '/Class #/{c=0;m=0} /^[[:space:]]*#[0-9]+/{m=0;c=(/in LX\/03yK;/)} c && /name[[:space:]]*:[[:space:]]*\x27A03\x27/{m=1} m{print}' | grep -i -C 15 -E '04c0|3f4ccccd|3f400000' || true
