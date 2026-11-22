@@ -41,12 +41,19 @@ private val enableBlurResourcesPatch =
         execute {
             document("res/values/strings.xml").use { document ->
                 val resources = document.getElementsByTagName("resources").item(0)
+               val existingNames = mutableSetOf<String>()
+               val nodes = document.getElementsByTagName("string")
+               for (i in 0 until nodes.length) {
+                   val attr = nodes.item(i).attributes?.getNamedItem("name")?.nodeValue
+                   if (attr != null) existingNames.add(attr)
+               }
                 listOf(
                     "piko_my_patches_category_title" to "My Patches",
                     "piko_my_patches_category_summary" to "Custom patches",
                     "piko_my_patches_enable_blur_title" to "Enable blur effects",
                     "piko_my_patches_enable_blur_summary" to "Enable Haze and Glass blur effects on all devices",
                 ).forEach { (name, value) ->
+                   if (name in existingNames) return@forEach
                     val stringElement = document.createElement("string")
                     stringElement.setAttribute("name", name)
                     stringElement.textContent = value
@@ -110,7 +117,7 @@ dependsOn(enableBlurResourcesPatch)
                 const-string v0, "newx.my_patches"
 const-string v1, "piko_my_patches_category_title"
 const-string v2, "piko_my_patches_category_summary"
-const/4 v3, 0x0
+const-string v3, "ic_vector_wrench"
                 const/16 v4, 0x32
                 invoke-static/range {v0 .. v4}, $SETTINGS_REGISTRY->registerCategory(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V
                 const-string v0, "newx.my_patches"
