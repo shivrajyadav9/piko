@@ -66,15 +66,15 @@ val rememberProfileTabPatch = bytecodePatch(
     var resolvedHelperClass: String? = null
 
     execute {
-        val tabEnumDef = classDefByOrNull("Lcom/x/profile/l0;")
-            ?: classes.firstOrNull { cls ->
+        var tabEnumDefFound = classDefByOrNull("Lcom/x/profile/l0;")
+            if (tabEnumDefFound == null) { classDefForEach { cls -> if (tabEnumDefFound == null) {
                 val names = cls.staticFields.filter { it.type == cls.type }.map { it.name }.toSet()
-                "All" in names && "Posts" in names && "Highlights" in names
+                if ("All" in names && "Posts" in names && "Highlights" in names) { tabEnumDefFound = cls } }
             }
-            ?: throw PatchException("RememberProfileTabPatch: could not find profile tab enum")
+            val tabEnumDef = tabEnumDefFound ?: throw PatchException("RememberProfileTabPatch: could not find profile tab enum")
         val tabEnum = tabEnumDef.type
 
-        val controllerDef = classes.firstOrNull { cls ->
+        var controllerDefFound: com.android.tools.smali.dexlib2.iface.ClassDef? = null; classDefForEach { cls -> if (controllerDefFound == null &&
             cls.methods.any { m ->
                 m.name == "<init>" && m.implementation?.instructions?.any { ins ->
                     ins.opcode == Opcode.CONST_STRING &&
@@ -82,7 +82,7 @@ val rememberProfileTabPatch = bytecodePatch(
                         "Combined timeline requires at least two sub-tabs"
                 } == true
             }
-        } ?: throw PatchException("RememberProfileTabPatch: could not find combined profile timeline controller")
+        ) { controllerDefFound = cls } }; val controllerDef = controllerDefFound ?: throw PatchException("RememberProfileTabPatch: could not find combined profile timeline controller")
 
         val controllerMutable = mutableClassDefBy(controllerDef)
         val controllerType = controllerMutable.type
