@@ -11,6 +11,8 @@ import com.android.tools.smali.dexlib2.AccessFlags
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.builder.MutableMethodImplementation
 import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction10x
+import com.android.tools.smali.dexlib2.iface.instruction.FiveRegisterInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.RegisterRangeInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.TwoRegisterInstruction
@@ -107,32 +109,51 @@ val rememberProfileSortPatch = bytecodePatch(
                 } == true
         } ?: throw PatchException("RememberProfileSortPatch: could not find setSort(Z) method")
 
+        val sortFlowFieldRef = setSortMethod.implementation?.instructions?.firstNotNullOfOrNull { ins ->
+            if (ins.opcode == Opcode.IGET_OBJECT) {
+                val fRef = (ins as? ReferenceInstruction)?.reference as? FieldReference
+                if (fRef != null && fRef.definingClass == controllerType) fRef else null
+            } else {
+                null
+            }
+        } ?: throw PatchException("RememberProfileSortPatch: could not find sort StateFlow field in ${setSortMethod.name}")
+
         val initMethod = controllerMutable.methods.firstOrNull { it.name == "<init>" }
             ?: throw PatchException("RememberProfileSortPatch: could not find controller <init>")
         val initInsns = initMethod.implementation?.instructions?.toList()
             ?: throw PatchException("RememberProfileSortPatch: controller <init> has no implementation")
 
+        val iputIdx = initInsns.indexOfFirst { ins ->
+            ins.opcode == Opcode.IPUT_OBJECT &&
+                ((ins as? ReferenceInstruction)?.reference as? FieldReference)?.let { fRef ->
+                    fRef.definingClass == controllerType && fRef.name == sortFlowFieldRef.name
+                } == true
+        }
+        if (iputIdx < 0) {
+            throw PatchException("RememberProfileSortPatch: could not find iput-object for ${sortFlowFieldRef.name} in <init>")
+        }
+        val thisReg = (initInsns[iputIdx] as TwoRegisterInstruction).registerB
+
         var hookIdx = -1
         var boolReg = -1
-        var thisReg = -1
-        for (i in 0 until initInsns.size - 3) {
-            val ins = initInsns[i]
-            if (ins.opcode != Opcode.SGET_OBJECT) continue
-            val fRef = (ins as? ReferenceInstruction)?.reference as? FieldReference ?: continue
-            if (fRef.definingClass != "Ljava/lang/Boolean;" || fRef.name != "FALSE") continue
-            val next = initInsns[i + 1]
-            if (next.opcode != Opcode.INVOKE_STATIC) continue
-            val mRef = (next as? ReferenceInstruction)?.reference as? MethodReference ?: continue
-            if (mRef.parameterTypes.size != 1 || mRef.parameterTypes[0].toString() != "Ljava/lang/Object;") continue
-            val iput = initInsns[i + 3]
-            if (iput.opcode != Opcode.IPUT_OBJECT) continue
-            hookIdx = i + 1
-            boolReg = (ins as OneRegisterInstruction).registerA
-            thisReg = (iput as TwoRegisterInstruction).registerB
-            break
+        for (j in (iputIdx - 1) downTo maxOf(0, iputIdx - 8)) {
+            val ins = initInsns[j]
+            if (ins.opcode == Opcode.INVOKE_STATIC || ins.opcode == Opcode.INVOKE_STATIC_RANGE) {
+                val mRef = (ins as? ReferenceInstruction)?.reference as? MethodReference ?: continue
+                if (mRef.returnType == sortFlowFieldRef.type) {
+                    hookIdx = j
+                    boolReg = if (ins.opcode == Opcode.INVOKE_STATIC) {
+                        (ins as FiveRegisterInstruction).registerC
+                    } else {
+                        (ins as RegisterRangeInstruction).startRegister
+                    }
+                    break
+                }
+            }
         }
         if (hookIdx < 0) {
-            throw PatchException("RememberProfileSortPatch: could not find initial sort StateFlow creation in <init>")
+            val nearby = (maxOf(0, iputIdx - 6)..iputIdx).joinToString(",") { "${it}:${initInsns[it].opcode}" }
+            throw PatchException("RememberProfileSortPatch: could not find StateFlow factory before ${sortFlowFieldRef.name} ($nearby)")
         }
 
         if (controllerMutable.staticFields.none { it.name == "pikoRememberProfileSortRegistered" }) {
@@ -275,7 +296,7 @@ val rememberProfileSortPatch = bytecodePatch(
         initMethod.addInstructions(
             hookIdx,
             """
-                invoke-direct {v$thisReg}, $controllerType->pikoInitialProfileSort()Ljava/lang/Boolean;
+                invoke-direct/range {v$thisReg .. v$thisReg}, $controllerType->pikoInitialProfileSort()Ljava/lang/Boolean;
                 move-result-object v$boolReg
             """.trimIndent(),
         )
