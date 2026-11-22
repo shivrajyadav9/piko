@@ -66,10 +66,13 @@ val rememberProfileTabPatch = bytecodePatch(
     var resolvedHelperClass: String? = null
 
     execute {
-        var tabEnumDefFound = classDefByOrNull("Lcom/x/profile/l0;")
-            if (tabEnumDefFound == null) { classDefForEach { cls -> if (tabEnumDefFound == null) {
+        var tabEnumDefFound : com.android.tools.smali.dexlib2.iface.ClassDef?= classDefByOrNull("Lcom/x/profile/l0;")
+            if (tabEnumDefFound == null) { 
+                classDefForEach { cls ->
+                    if (tabEnumDefFound == null) {
                 val names = cls.staticFields.filter { it.type == cls.type }.map { it.name }.toSet()
                 if ("All" in names && "Posts" in names && "Highlights" in names) { tabEnumDefFound = cls } }
+            }
             }
             val tabEnumDef = tabEnumDefFound ?: throw PatchException("RememberProfileTabPatch: could not find profile tab enum")
         val tabEnum = tabEnumDef.type
