@@ -123,7 +123,7 @@ val rememberProfileSortPatch = bytecodePatch(
             val next = initInsns[i + 1]
             if (next.opcode != Opcode.INVOKE_STATIC) continue
             val mRef = (next as? ReferenceInstruction)?.reference as? MethodReference ?: continue
-            if (mRef.parameterTypes.size != 1 || mRef.parameterTypes[0] != "Ljava/lang/Object;") continue
+            if (mRef.parameterTypes.size != 1 || mRef.parameterTypes[0].toString() != "Ljava/lang/Object;") continue
             val iput = initInsns[i + 3]
             if (iput.opcode != Opcode.IPUT_OBJECT) continue
             hookIdx = i + 1
