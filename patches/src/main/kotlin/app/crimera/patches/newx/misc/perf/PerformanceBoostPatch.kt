@@ -143,7 +143,7 @@ val performanceBoostPatch = bytecodePatch(
                 const-string v0, "newx.my_patches"
                 const-string v1, "piko_my_patches_category_title"
                 const-string v2, "piko_my_patches_category_summary"
-                const/4 v3, 0x0
+               const-string v3, "ic_vector_wrench" 
                 const/16 v4, 0x32
                 invoke-static {v0, v1, v2, v3, v4}, $SETTINGS_REGISTRY->registerCategory(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V
                 const-string v0, "newx.my_patches"
