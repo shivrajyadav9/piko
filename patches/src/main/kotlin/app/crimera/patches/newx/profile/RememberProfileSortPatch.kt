@@ -65,15 +65,21 @@ val rememberProfileSortPatch = bytecodePatch(
     var resolvedHelperClass: String? = null
 
     execute {
-        val controllerDef = classes.firstOrNull { cls ->
-            cls.methods.any { m ->
+       var controllerDefFound: com.android.tools.smali.dexlib2.iface.ClassDef? = null
+        classDefForEach { cls ->
+        if (controllerDefFound == null) {    
+            val matches = cls.methods.any { m ->
                 m.name == "<init>" && m.implementation?.instructions?.any { ins ->
                     ins.opcode == Opcode.CONST_STRING &&
                         ((ins as? ReferenceInstruction)?.reference as? StringReference)?.string ==
                         "Combined timeline requires at least two sub-tabs"
                 } == true
             }
-        } ?: throw PatchException("RememberProfileSortPatch: could not find combined profile timeline controller")
+            if (matches) controllerDefFound = cls
+        }
+        }
+    val controllerDef = controllerDefFound
+    ?: throw PatchException("RememberProfileSortPatch: could not find combined profile timeline controller")
 
         val controllerMutable = mutableClassDefBy(controllerDef)
         val controllerType = controllerMutable.type
