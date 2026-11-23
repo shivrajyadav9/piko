@@ -14,6 +14,7 @@ import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction10x
 import com.android.tools.smali.dexlib2.iface.instruction.NarrowLiteralInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.TwoRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.reference.FieldReference
 import com.android.tools.smali.dexlib2.immutable.ImmutableField
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
@@ -46,7 +47,7 @@ private val enhancedFrostedGlassResourcesPatch = resourcePatch {
             addStringIfMissing("piko_my_patches_enhanced_glass_title", "Enhanced frosted glass")
             addStringIfMissing(
                 "piko_my_patches_enhanced_glass_summary",
-                "Clearer frosted glass bars, menus, and nav pill with bright specular borders and XChat Liquid Glass header",
+                "Luminous frosted glass sheen, vivid 16dp blur, bright specular borders, translucent drawer, and XChat Liquid Glass",
             )
         }
     }
@@ -55,7 +56,7 @@ private val enhancedFrostedGlassResourcesPatch = resourcePatch {
 @Suppress("unused")
 val enhancedFrostedGlassPatch = bytecodePatch(
     name = "Enhanced frosted glass",
-    description = "Upgrades NewX frosted glass translucency, bright specular borders on glass pills, and enables XChat Liquid Glass headers.",
+    description = "Strong frosted glass look: icy-white glass sheen, vivid 16dp blur, frosted grain, bright 1.5dp specular borders, translucent drawer, and XChat Liquid Glass headers.",
 ) {
     compatibleWith(COMPATIBILITY_NEW_X)
     dependsOn(enhancedFrostedGlassResourcesPatch)
@@ -152,8 +153,174 @@ val enhancedFrostedGlassPatch = bytecodePatch(
             """.trimIndent(),
         )
 
+        // Top bars / standard haze tint alpha: 0.75f -> 0.28f
         addStaticHelper(
             name = "pikoGlassBarAlpha",
+            params = emptyList(),
+            returnType = "F",
+            registerCount = 1,
+            smali = """
+                invoke-static {}, $glassType->pikoIsEnhancedGlassEnabled()Z
+                move-result v0
+                if-eqz v0, :stock
+                const v0, 0x3e8f5c29
+                return v0
+                :stock
+                const/high16 v0, 0x3f400000
+                return v0
+            """.trimIndent(),
+        )
+
+        // Elevated sheets / menus haze tint alpha: 0.90f -> 0.35f
+        addStaticHelper(
+            name = "pikoGlassSheetAlpha",
+            params = emptyList(),
+            returnType = "F",
+            registerCount = 1,
+            smali = """
+                invoke-static {}, $glassType->pikoIsEnhancedGlassEnabled()Z
+                move-result v0
+                if-eqz v0, :stock
+                const v0, 0x3eb33333
+                return v0
+                :stock
+                const v0, 0x3f666666
+                return v0
+            """.trimIndent(),
+        )
+
+        // Floating glass bottom nav pill tint alpha: 0.65f -> 0.22f
+        addStaticHelper(
+            name = "pikoGlassPillAlpha",
+            params = emptyList(),
+            returnType = "F",
+            registerCount = 1,
+            smali = """
+                invoke-static {}, $glassType->pikoIsEnhancedGlassEnabled()Z
+                move-result v0
+                if-eqz v0, :stock
+                const v0, 0x3e6147ae
+                return v0
+                :stock
+                const v0, 0x3f266666
+                return v0
+            """.trimIndent(),
+        )
+
+        // Glass pill border width: 1.0dp -> 1.5dp
+        addStaticHelper(
+            name = "pikoGlassRimWidth",
+            params = emptyList(),
+            returnType = "F",
+            registerCount = 1,
+            smali = """
+                invoke-static {}, $glassType->pikoIsEnhancedGlassEnabled()Z
+                move-result v0
+                if-eqz v0, :stock
+                const/high16 v0, 0x3fc00000
+                return v0
+                :stock
+                const/high16 v0, 0x3f800000
+                return v0
+            """.trimIndent(),
+        )
+
+        // Specular highlight rim stops: 3.2x brightness when enabled
+        addStaticHelper(
+            name = "pikoGlassRimAlpha",
+            params = listOf("F"),
+            returnType = "F",
+            registerCount = 2,
+            smali = """
+                invoke-static {}, $glassType->pikoIsEnhancedGlassEnabled()Z
+                move-result v0
+                if-eqz v0, :stock
+                const v0, 0x404ccccd
+                mul-float/2addr p0, v0
+                :stock
+                return p0
+            """.trimIndent(),
+        )
+
+        // Global Haze blur radius: 32-40dp -> 16dp (vivid colors glow through instead of mud)
+        addStaticHelper(
+            name = "pikoGlassBlurRadius",
+            params = listOf("F"),
+            returnType = "F",
+            registerCount = 2,
+            smali = """
+                invoke-static {}, $glassType->pikoIsEnhancedGlassEnabled()Z
+                move-result v0
+                if-eqz v0, :stock
+                const/high16 p0, 0x41800000
+                :stock
+                return p0
+            """.trimIndent(),
+        )
+
+        // Global Haze frosted grain: 0.05f -> 0.18f
+        addStaticHelper(
+            name = "pikoGlassNoiseFactor",
+            params = listOf("F"),
+            returnType = "F",
+            registerCount = 2,
+            smali = """
+                invoke-static {}, $glassType->pikoIsEnhancedGlassEnabled()Z
+                move-result v0
+                if-eqz v0, :stock
+                const p0, 0x3e3851ec
+                :stock
+                return p0
+            """.trimIndent(),
+        )
+
+        // Global Haze 2-layer frosted tint: append 13% icy-white sheen over base tint
+        addStaticHelper(
+            name = "pikoEnhanceHazeTints",
+            params = listOf("Ljava/util/List;"),
+            returnType = "Ljava/util/List;",
+            registerCount = 6,
+            smali = """
+                invoke-static {}, $glassType->pikoIsEnhancedGlassEnabled()Z
+                move-result v0
+                if-eqz v0, :stock
+                new-instance v0, Ljava/util/ArrayList;
+                invoke-direct {v0, p0}, Ljava/util/ArrayList;-><init>(Ljava/util/Collection;)V
+                sget-wide v1, Lcom/x/compose/core/z2;->E1:J
+                const v3, 0x3e051eb8
+                invoke-static {v3, v1, v2}, Landroidx/compose/ui/graphics/z;->c(FJ)J
+                move-result-wide v1
+                new-instance v3, Ldev/chrisbanes/haze/blur/g0;
+                invoke-direct {v3, v1, v2}, Ldev/chrisbanes/haze/blur/g0;-><init>(J)V
+                invoke-virtual {v0, v3}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
+                return-object v0
+                :stock
+                return-object p0
+            """.trimIndent(),
+        )
+
+        // Translucent frosted Side Drawer container color (0.72f alpha)
+        addStaticHelper(
+            name = "pikoGlassDrawerColor",
+            params = listOf("J"),
+            returnType = "J",
+            registerCount = 5,
+            smali = """
+                invoke-static {}, $glassType->pikoIsEnhancedGlassEnabled()Z
+                move-result v0
+                if-eqz v0, :stock
+                const v0, 0x3f3851ec
+                invoke-static {v0, p0, p1}, Landroidx/compose/ui/graphics/z;->c(FJ)J
+                move-result-wide v0
+                return-wide v0
+                :stock
+                return-wide p0
+            """.trimIndent(),
+        )
+
+        // Translucent Side Drawer bottom bar alpha: 0.95f -> 0.45f
+        addStaticHelper(
+            name = "pikoGlassDrawerBarAlpha",
             params = emptyList(),
             returnType = "F",
             registerCount = 1,
@@ -164,75 +331,8 @@ val enhancedFrostedGlassPatch = bytecodePatch(
                 const v0, 0x3ee66666
                 return v0
                 :stock
-                const/high16 v0, 0x3f400000
+                const v0, 0x3f733333
                 return v0
-            """.trimIndent(),
-        )
-
-        addStaticHelper(
-            name = "pikoGlassSheetAlpha",
-            params = emptyList(),
-            returnType = "F",
-            registerCount = 1,
-            smali = """
-                invoke-static {}, $glassType->pikoIsEnhancedGlassEnabled()Z
-                move-result v0
-                if-eqz v0, :stock
-                const v0, 0x3f0ccccd
-                return v0
-                :stock
-                const v0, 0x3f666666
-                return v0
-            """.trimIndent(),
-        )
-
-        addStaticHelper(
-            name = "pikoGlassPillAlpha",
-            params = emptyList(),
-            returnType = "F",
-            registerCount = 1,
-            smali = """
-                invoke-static {}, $glassType->pikoIsEnhancedGlassEnabled()Z
-                move-result v0
-                if-eqz v0, :stock
-                const v0, 0x3ec28f5c
-                return v0
-                :stock
-                const v0, 0x3f266666
-                return v0
-            """.trimIndent(),
-        )
-
-        addStaticHelper(
-            name = "pikoGlassRimWidth",
-            params = emptyList(),
-            returnType = "F",
-            registerCount = 1,
-            smali = """
-                invoke-static {}, $glassType->pikoIsEnhancedGlassEnabled()Z
-                move-result v0
-                if-eqz v0, :stock
-                const/high16 v0, 0x3fa00000
-                return v0
-                :stock
-                const/high16 v0, 0x3f800000
-                return v0
-            """.trimIndent(),
-        )
-
-        addStaticHelper(
-            name = "pikoGlassRimAlpha",
-            params = listOf("F"),
-            returnType = "F",
-            registerCount = 2,
-            smali = """
-                invoke-static {}, $glassType->pikoIsEnhancedGlassEnabled()Z
-                move-result v0
-                if-eqz v0, :stock
-                const/high16 v0, 0x40000000
-                mul-float/2addr p0, v0
-                :stock
-                return p0
             """.trimIndent(),
         )
 
@@ -279,6 +379,33 @@ val enhancedFrostedGlassPatch = bytecodePatch(
             """.trimIndent(),
         )
 
+        // 1. Hook global Haze effect builder com/x/compose/core/t0.invoke (blurRadius, noiseFactor, 2-layer frosted sheen tints)
+        val t0Def = classDefByOrNull("Lcom/x/compose/core/t0;")
+            ?: throw PatchException("EnhancedFrostedGlassPatch: could not find com/x/compose/core/t0")
+        val t0Invoke = mutableClassDefBy(t0Def).methods.firstOrNull { it.name == "invoke" }
+            ?: throw PatchException("EnhancedFrostedGlassPatch: could not find t0.invoke")
+        val t0Insns = t0Invoke.implementation?.instructions?.toList()
+            ?: throw PatchException("EnhancedFrostedGlassPatch: t0.invoke has no implementation")
+        val t0Hooks = mutableListOf<Pair<Int, String>>()
+        for (i in t0Insns.indices) {
+            val ins = t0Insns[i]
+            val fRef = (ins as? ReferenceInstruction)?.reference as? FieldReference ?: continue
+            if (fRef.definingClass != "Lcom/x/compose/core/t0;") continue
+            val reg = (ins as TwoRegisterInstruction).registerA
+            when {
+                ins.opcode == Opcode.IGET && fRef.name == "b" && fRef.type == "F" ->
+                    t0Hooks.add(i + 1 to "invoke-static {v$reg}, $glassType->pikoGlassBlurRadius(F)F\nmove-result v$reg")
+                ins.opcode == Opcode.IGET && fRef.name == "c" && fRef.type == "F" ->
+                    t0Hooks.add(i + 1 to "invoke-static {v$reg}, $glassType->pikoGlassNoiseFactor(F)F\nmove-result v$reg")
+                ins.opcode == Opcode.IGET_OBJECT && fRef.name == "e" && fRef.type == "Ljava/util/List;" ->
+                    t0Hooks.add(i + 1 to "invoke-static {v$reg}, $glassType->pikoEnhanceHazeTints(Ljava/util/List;)Ljava/util/List;\nmove-result-object v$reg")
+            }
+        }
+        for ((idx, smali) in t0Hooks.sortedByDescending { it.first }) {
+            t0Invoke.addInstructions(idx, smali)
+        }
+
+        // 2. Hook glass/z.b (0.65f pill tint alpha -> 0.22f)
         val glassBMethod = glassMutable.methods.firstOrNull { m ->
             m.name == "b" && m.returnType == "Landroidx/compose/ui/Modifier;"
         } ?: throw PatchException("EnhancedFrostedGlassPatch: could not find glass/z.b")
@@ -300,6 +427,7 @@ val enhancedFrostedGlassPatch = bytecodePatch(
             """.trimIndent(),
         )
 
+        // 3. Hook glass/z.<clinit> (3.2x specular rim stops + 1.5dp border width)
         val glassClinit = glassMutable.methods.firstOrNull { it.name == "<clinit>" }
             ?: throw PatchException("EnhancedFrostedGlassPatch: could not find glass/z.<clinit>")
         val clinitInsns = glassClinit.implementation?.instructions?.toList()
@@ -348,6 +476,7 @@ val enhancedFrostedGlassPatch = bytecodePatch(
             )
         }
 
+        // 4. Hook com/x/compose/core/s0.c (0.75f default bar haze alpha -> 0.28f)
         val s0Def = classDefByOrNull("Lcom/x/compose/core/s0;")
             ?: throw PatchException("EnhancedFrostedGlassPatch: could not find com/x/compose/core/s0")
         val s0Method = mutableClassDefBy(s0Def).methods.firstOrNull { m ->
@@ -371,6 +500,7 @@ val enhancedFrostedGlassPatch = bytecodePatch(
             """.trimIndent(),
         )
 
+        // 5. Hook com/x/compose/core/u0.f (0.90f elevated sheet/menu haze alpha -> 0.35f)
         val u0Def = classDefByOrNull("Lcom/x/compose/core/u0;")
             ?: throw PatchException("EnhancedFrostedGlassPatch: could not find com/x/compose/core/u0")
         val u0FMethod = mutableClassDefBy(u0Def).methods.firstOrNull { m ->
@@ -394,6 +524,49 @@ val enhancedFrostedGlassPatch = bytecodePatch(
             """.trimIndent(),
         )
 
+        // 6. Hook Side Drawer (com/x/main/drawer/a.o container color -> 0.72f alpha, a.g bottom bar -> 0.45f alpha)
+        classDefByOrNull("Lcom/x/main/drawer/a;")?.let { drawerDef ->
+            val drawerMutable = mutableClassDefBy(drawerDef)
+            drawerMutable.methods.firstOrNull { it.name == "o" }?.let { drawerO ->
+                val insns = drawerO.implementation?.instructions?.toList() ?: return@let
+                val colorIdx = insns.indexOfFirst { ins ->
+                    ins.opcode == Opcode.IGET_WIDE &&
+                        ((ins as? ReferenceInstruction)?.reference as? FieldReference)?.let { f ->
+                            f.definingClass == "Lcom/x/compose/theme/e;" && f.name == "q"
+                        } == true
+                }
+                if (colorIdx >= 0) {
+                    val regLo = (insns[colorIdx] as TwoRegisterInstruction).registerA
+                    val regHi = regLo + 1
+                    drawerO.addInstructions(
+                        colorIdx + 1,
+                        """
+                            invoke-static {v$regLo, v$regHi}, $glassType->pikoGlassDrawerColor(J)J
+                            move-result-wide v$regLo
+                        """.trimIndent(),
+                    )
+                }
+            }
+            drawerMutable.methods.firstOrNull { it.name == "g" }?.let { drawerG ->
+                val insns = drawerG.implementation?.instructions?.toList() ?: return@let
+                val alphaIdx = insns.indexOfFirst { ins ->
+                    (ins.opcode == Opcode.CONST || ins.opcode == Opcode.CONST_HIGH16) &&
+                        (ins as? NarrowLiteralInstruction)?.narrowLiteral == 0x3f733333
+                }
+                if (alphaIdx >= 0) {
+                    val reg = (insns[alphaIdx] as OneRegisterInstruction).registerA
+                    drawerG.addInstructions(
+                        alphaIdx + 1,
+                        """
+                            invoke-static {}, $glassType->pikoGlassDrawerBarAlpha()F
+                            move-result v$reg
+                        """.trimIndent(),
+                    )
+                }
+            }
+        }
+
+        // 7. Hook FeatureSwitchesRepositoryImpl.getBoolean(String, Z)Z
         classDefByOrNull(FEATURE_SWITCHES_IMPL)?.let { fsDef ->
             mutableClassDefBy(fsDef).methods.firstOrNull { m ->
                 m.name == "getBoolean" &&
