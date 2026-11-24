@@ -162,9 +162,9 @@ val forYouBottomTabPatch = bytecodePatch(
                 if-nez v0, :have
                 new-instance v0, $BOOLEAN_SETTING_CLASS
                 const-string v1, "piko_for_you_bottom_tab"
-                const/4 v2, 0x1
+                sget-object v2, Ljava/lang/Boolean;->TRUE:Ljava/lang/Boolean;
                 sget-object v3, $RESTART_POLICY_CLASS->REQUIRED:$RESTART_POLICY_CLASS
-                invoke-direct {v0, v1, v2, v3}, $BOOLEAN_SETTING_CLASS-><init>(Ljava/lang/String;Z$RESTART_POLICY_CLASS)V
+                invoke-direct {v0, v1, v2, v3}, $BOOLEAN_SETTING_CLASS-><init>(Ljava/lang/String;Ljava/lang/Boolean;$RESTART_POLICY_CLASS)V
                 sput-object v0, $builderType->pikoForYouBottomTabSetting:$BOOLEAN_SETTING_CLASS
                 :have
                 return-object v0
@@ -177,11 +177,20 @@ val forYouBottomTabPatch = bytecodePatch(
             returnType = "Z",
             registerCount = 1,
             smali = """
-                invoke-static {}, $builderType->pikoGetForYouBottomTabSetting()$BOOLEAN_SETTING_CLASS
-                move-result-object v0
-                invoke-static {v0}, $SHARED_PREF_CLASS->getBooleanPref($BASE_BOOLEAN_SETTING_CLASS)Z
-                move-result v0
-                return v0
+               invoke-static {}, Lapp/morphe/extension/shared/Utils;->getContext()Landroid/content/Context;
+               move-result-object v0
+               if-eqz v0, :default_on
+               invoke-static {}, $builderType->pikoGetForYouBottomTabSetting()$BOOLEAN_SETTING_CLASS
+               move-result-object v0
+               invoke-static {v0}, $SHARED_PREF_CLASS->getBooleanPref($BASE_BOOLEAN_SETTING_CLASS)Ljava/lang/Boolean;
+               move-result-object v0
+               if-eqz v0, :default_on
+               invoke-virtual {v0}, Ljava/lang/Boolean;->booleanValue()Z
+               move-result v0
+               return v0
+               :default_on
+               const/4 v0, 0x1
+               return v0
             """.trimIndent(),
         )
 
