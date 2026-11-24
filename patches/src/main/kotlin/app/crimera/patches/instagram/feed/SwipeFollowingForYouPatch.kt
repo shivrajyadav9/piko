@@ -61,23 +61,12 @@ val swipeFollowingForYouPatch = bytecodePatch(
                 swipeClass = classDef
             }
 
-            if (prefClass == null) {
-                val getter = classDef.methods.firstOrNull {
-                    it.parameterTypes.isEmpty() &&
-                        it.returnType == "Ljava/lang/String;" &&
-                        methodReferencesString(it, "last_selected_feed_type")
-                }
-                val setter = classDef.methods.firstOrNull {
-                    it.parameterTypes.size == 1 &&
-                        it.parameterTypes[0].toString() == "Ljava/lang/String;" &&
-                        it.returnType == "V" &&
-                        methodReferencesString(it, "last_selected_feed_type")
-                }
-                if (getter != null && setter != null) {
-                    prefClass = classDef
-                    prefGetter = getter
-                    prefSetter = setter
-                }
+            if (prefClass == null && classDef.methods.any { methodReferencesString(it, "last_selected_feed_type") }) {
+                           prefClass = classDef
+                val getters = classDef.methods.filter { it.parameterTypes.isEmpty() && it.returnType == "Ljava/lang/String;" }
+prefGetter = getters.firstOrNull { methodReferencesString(it, "last_selected_feed_type") } ?: getters.firstOrNull()
+val setters = classDef.methods.filter { it.parameterTypes.size == 1 && it.parameterTypes[0].toString() == "Ljava/lang/String;" && it.returnType == "V" }
+prefSetter = setters.firstOrNull { methodReferencesString(it, "last_selected_feed_type") } ?: setters.firstOrNull()
             }
 
             if (enumClass == null && classDef.superclass == "Ljava/lang/Enum;") {
@@ -86,16 +75,14 @@ val swipeFollowingForYouPatch = bytecodePatch(
                 if (insns != null) {
                     var idxForYou = -1
                     var idxFollowing = -1
-                    var hasTimelineFollowing = false
                     for (i in insns.indices) {
                         val ref = (insns[i] as? ReferenceInstruction)?.reference as? StringReference ?: continue
                         when (ref.string) {
                             "BLENDED_FOR_YOU" -> if (idxForYou == -1) idxForYou = i
                             "FOLLOWING" -> if (idxFollowing == -1) idxFollowing = i
-                            "feed_timeline_following" -> hasTimelineFollowing = true
                         }
                     }
-                    if (idxForYou != -1 && idxFollowing != -1 && hasTimelineFollowing) {
+                    if (idxForYou != -1 && idxFollowing != -1) {
                         var fyField: String? = null
                         for (i in (idxForYou + 1) until insns.size) {
                             val insn = insns[i]
@@ -129,8 +116,8 @@ val swipeFollowingForYouPatch = bytecodePatch(
         }
 
         val resolvedPrefClass = prefClass ?: throw PatchException("Could not find feed pref class")
-        val resolvedPrefGetter = prefGetter ?: throw PatchException("Could not find feed pref getter")
-        val resolvedPrefSetter = prefSetter ?: throw PatchException("Could not find feed pref setter")
+        val resolvedPrefGetter = prefGetter
+        val resolvedPrefSetter = prefSetter
         val resolvedEnumClass = enumClass ?: throw PatchException("Could not find feed enum class")
         val resolvedForYouField = forYouFieldName ?: throw PatchException("Could not find BLENDED_FOR_YOU field")
         val resolvedFollowingField = followingFieldName ?: throw PatchException("Could not find FOLLOWING field")
@@ -148,7 +135,7 @@ val swipeFollowingForYouPatch = bytecodePatch(
                         insn is ReferenceInstruction &&
                             (insn.reference as? MethodReference)?.let { ref ->
                                 ref.definingClass == resolvedPrefClass.type &&
-                                    ref.name == resolvedPrefSetter.name &&
+                                    (resolvedPrefSetter == null || ref.name == resolvedPrefSetter.name) &&
                                     ref.returnType == "V" &&
                                     ref.parameterTypes.size == 1 &&
                                     ref.parameterTypes[0].toString() == "Ljava/lang/String;"
@@ -314,7 +301,7 @@ val swipeFollowingForYouPatch = bytecodePatch(
             """.trimIndent(),
         )
 
-        val prefFieldResolutionBlock = if (prefFieldName != null) {
+        val prefFieldResolutionBlock = if (prefFieldName != null && resolvedPrefGetter != null) {
             """
                 iget-object v2, v0, ${resolvedSwitcherClass.type}->$prefFieldName:${resolvedPrefClass.type}
                 if-eqz v2, :piko_not_following
