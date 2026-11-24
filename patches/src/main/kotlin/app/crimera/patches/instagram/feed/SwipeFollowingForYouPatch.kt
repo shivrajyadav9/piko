@@ -239,14 +239,11 @@ val swipeFollowingForYouPatch = bytecodePatch(
 
         // 8. Force Homecoming gating (02wx.A04) -> true when enabled
         homecomingMutable.methods.firstOrNull { m ->
-            AccessFlags.STATIC.isSet(m.accessFlags) &&
+            AccessFlags.PUBLIC.isSet(m.accessFlags) &&
+                AccessFlags.STATIC.isSet(m.accessFlags) &&
                 m.returnType == "Z" &&
                 m.parameters.size == 1 &&
-                m.parameters[0].type == USER_SESSION_CLASS &&
-                m.implementation?.instructions?.any { ins ->
-                    (ins.opcode == Opcode.CONST_STRING || ins.opcode == Opcode.CONST_STRING_JUMBO) &&
-                        ((ins as? ReferenceInstruction)?.reference as? StringReference)?.string == "test"
-                } == true
+                m.parameters[0].type == USER_SESSION_CLASS
         }?.addInstructions(
             0,
             """
