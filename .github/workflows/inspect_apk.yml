@@ -34,4 +34,5 @@ jobs:
       - name: Inspect resources and DEX
         run: |
           BASE_APK=$(find /tmp/extracted -maxdepth 2 -name "*.apk" -exec sh -c 'unzip -l "$1" | grep -q "classes.dex" && echo "$1"' _ {} \; | head -n 1)
-                    mkdir -p /tmp/jadx_out && (/tmp/jadx/bin/jadx --rename-flags "none" --single-class X.07AW -d /tmp/jadx_out "$BASE_APK" || true) && echo "=== X.07AW (lines 2845-2960) ===" && (sed -n '2845,2960p' /tmp/jadx_out/sources/X/07AW.java || true) && echo "=== grep void A0k (-A 20) ===" && (grep -n -A 20 "void A0k" /tmp/jadx_out/sources/X/07AW.java || true) && echo "=== grep 0SHj (-C 5) ===" && (grep -n -C 5 "0SHj" /tmp/jadx_out/sources/X/07AW.java || true)
+          mkdir -p /tmp/jadx_out && (/tmp/jadx/bin/jadx --rename-flags "none" --single-class X.08T8 -d /tmp/jadx_out "$BASE_APK" || true) && echo "=== X.08T8 ===" && (cat /tmp/jadx_out/sources/X/08T8.java || true) && (/tmp/jadx/bin/jadx --rename-flags "none" --single-class X.07AW -d /tmp/jadx_out "$BASE_APK" || true) && echo "=== X.07AW (lines 2990-3160) ===" && (sed -n '2990,3160p' /tmp/jadx_out/sources/X/07AW.java || true)
+          
