@@ -77,20 +77,33 @@ val swipeFollowingForYouPatch = bytecodePatch(
             switcherCfgDef ?: throw PatchException("SwipeFollowingForYouPatch: could not find feed switcher config class"),
         )
 
-        // 3. Locate Homecoming gating class (contains "homecoming_has_ever_opted_out")
-        var homecomingDef: ClassDef? = null
-        classDefForEach { cls ->
-            if (homecomingDef == null) {
-                val matches = cls.methods.any { m ->
-                    m.implementation?.instructions?.any { ins ->
-                        (ins.opcode == Opcode.CONST_STRING || ins.opcode == Opcode.CONST_STRING_JUMBO) &&
-                            ((ins as? ReferenceInstruction)?.reference as? StringReference)?.string ==
-                            "homecoming_has_ever_opted_out"
-                    } == true
+   // 3. Locate Homecoming gating class (X.02wx: contains "homecoming_has_ever_opted_out" AND has public static boolean(UserSession) + static String(UserSession))
+var homecomingDef: ClassDef? = null
+classDefForEach { cls ->
+    if (homecomingDef == null) {
+val hasOptOutStr = cls.methods.any { m ->
+m.implementation?.instructions?.any { ins ->
+(ins.opcode == Opcode.CONST_STRING || ins.opcode == Opcode.CONST_STRING_JUMBO) &&
+((ins as? ReferenceInstruction)?.reference as? StringReference)?.string ==
+"homecoming_has_ever_opted_out"
+} == true
+}
+            val hasBoolGate = cls.methods.any { m ->
+                    AccessFlags.PUBLIC.isSet(m.accessFlags) &&
+                        AccessFlags.STATIC.isSet(m.accessFlags) &&
+                        m.returnType == "Z" &&
+                        m.parameters.size == 1 &&
+                        m.parameters[0].type == USER_SESSION_CLASS
                 }
-                if (matches) homecomingDef = cls
+                val hasStrHelper = cls.methods.any { m ->
+                    AccessFlags.STATIC.isSet(m.accessFlags) &&
+                        m.returnType == "Ljava/lang/String;" &&
+                        m.parameters.size == 1 &&
+                        m.parameters[0].type == USER_SESSION_CLASS
+                }
+                if (hasOptOutStr && hasBoolGate && hasStrHelper) homecomingDef = cls
             }
-        }
+}
         val homecomingMutable = mutableClassDefBy(
             homecomingDef ?: throw PatchException("SwipeFollowingForYouPatch: could not find Homecoming gating class"),
         )
