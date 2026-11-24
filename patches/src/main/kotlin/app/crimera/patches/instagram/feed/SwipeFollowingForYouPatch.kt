@@ -18,6 +18,7 @@ import com.android.tools.smali.dexlib2.iface.reference.MethodReference
 import com.android.tools.smali.dexlib2.iface.reference.StringReference
 import com.android.tools.smali.dexlib2.immutable.ImmutableField
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
+import com.android.tools.smali.dexlib2.immutable.ImmutableMethodImplementation
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodParameter
 
 private const val BOOLEAN_SETTING_CLASS = "Lapp/morphe/extension/instagram/settings/BooleanSetting;"
@@ -55,7 +56,7 @@ val swipeFollowingForYouPatch = bytecodePatch(
 
         var swipeClass: ClassDef? = null
 
-        for (classDef in classes) {
+        classDefForEach { classDef ->
             if (classDef.type == SWIPE_NAV_CONTAINER_CLASS) {
                 swipeClass = classDef
             }
@@ -137,7 +138,8 @@ val swipeFollowingForYouPatch = bytecodePatch(
 
         var switcherClass: ClassDef? = null
         var switchMethod: Method? = null
-        for (classDef in classes) {
+        classDefForEach { classDef ->
+           if (switcherClass != null) return@classDefForEach
             val candidate = classDef.methods.firstOrNull { method ->
                 method.parameterTypes.size == 1 &&
                     method.parameterTypes[0].toString() == resolvedEnumClass.type &&
@@ -156,7 +158,7 @@ val swipeFollowingForYouPatch = bytecodePatch(
             if (candidate != null) {
                 switcherClass = classDef
                 switchMethod = candidate
-                break
+                return@classDefForEach
             }
         }
 
@@ -178,7 +180,7 @@ val swipeFollowingForYouPatch = bytecodePatch(
                 "pikoSwipeFollowingSetting",
                 BOOLEAN_SETTING_CLASS,
                 privateStaticFlags,
-                null,
+                null, null, null,
             ).toMutable(),
         )
         swipeMutable.fields.add(
@@ -187,7 +189,7 @@ val swipeFollowingForYouPatch = bytecodePatch(
                 "pikoSwitcherRef",
                 "Ljava/lang/ref/WeakReference;",
                 publicStaticFlags,
-                null,
+                null, null, null,
             ).toMutable(),
         )
         swipeMutable.fields.add(
@@ -196,7 +198,7 @@ val swipeFollowingForYouPatch = bytecodePatch(
                 "pikoCurrentFeed",
                 "Ljava/lang/Object;",
                 publicStaticFlags,
-                null,
+                null, null, null,
             ).toMutable(),
         )
         swipeMutable.fields.add(
@@ -205,7 +207,7 @@ val swipeFollowingForYouPatch = bytecodePatch(
                 "pikoDownX",
                 "F",
                 publicStaticFlags,
-                null,
+                null, null, null,
             ).toMutable(),
         )
         swipeMutable.fields.add(
@@ -214,7 +216,7 @@ val swipeFollowingForYouPatch = bytecodePatch(
                 "pikoHandledSwipe",
                 "Z",
                 publicStaticFlags,
-                null,
+                null, null, null,
             ).toMutable(),
         )
 
