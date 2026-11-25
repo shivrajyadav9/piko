@@ -134,7 +134,7 @@ internal fun BytecodePatchContext.registerMyPatchesToggle(
     settingGetterName: String,
 ) {
     val screenBuilderDef = classDefByOrNull(SCREEN_BUILDER_CLASS) ?: return
-    val screenBuilder = MutableClassBy(screenBuilderDef)
+    val screenBuilder = mutableClassDefBy(screenBuilderDef)
 
     if (screenBuilder.methods.none { it.name == "pikoBuildMyPatchesSection" }) {
         val helperField = screenBuilder.fields.firstOrNull { it.name == "helper" } ?: return
