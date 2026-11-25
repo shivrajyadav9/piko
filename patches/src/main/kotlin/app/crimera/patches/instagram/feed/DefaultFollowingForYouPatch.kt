@@ -105,10 +105,8 @@ val prefClass = mutableClassDefBy(savedFeedPrefClassFingerprint.classDef)
                          mutableMethod.addInstructions(
                                 moveResultIdx + 1,
                                 """
-                                    if-nez v$resReg, :piko_flag_ok_$moveResultIdx
-                                    invoke-static {}, $prefClassType->pikoIsDefaultFollowingEnabled()Z
-                                    move-result v$resReg
-                                    :piko_flag_ok_$moveResultIdx
+                                  invoke-static/range {v$resReg .. v$resReg}, $prefClassType->pikoOrDefaultFollowingEnabled(Z)Z
+                                  move-result v$resReg
                                 """,
                             )
                             patchedReads++
@@ -165,6 +163,20 @@ val prefClass = mutableClassDefBy(savedFeedPrefClassFingerprint.classDef)
             )
             getSessionFeedHelper.removeInstruction(getSessionFeedHelper.implementation!!.instructions.size - 1)
             prefClass.methods.add(getSessionFeedHelper)
+        val orDefaultFollowingHelper =
+            ImmutableMethod(
+                prefClassType, "pikoOrDefaultFollowingEnabled", listOf(ImmutableMethodParameter("Z", null, null)), "Z", AccessFlags.PUBLIC.value or AccessFlags.STATIC.value, null, null, ImmutableMethodImplementation(2, listOf(ImmutableInstruction10x(Opcode.RETURN_VOID)), null, null)).toMutable()
+            orDefaultFollowingHelper.addInstructions(0, """
+            if-nez p0, :piko_ret_true
+invoke-static {}, $prefClassType->pikoIsDefaultFollowingEnabled()Z
+move-result p0
+return p0
+:piko_ret_true
+const/4 v0, 0x1
+return v0
+""".trimIndent())
+            orDefaultFollowingHelper.removeInstruction(orDefaultFollowingHelper.implementation!!.instructions.size - 1)
+prefClass.methods.add(orDefaultFollowingHelper)
 
             getSavedFeedFingerprint.method.addInstructions(
                 0,
@@ -176,6 +188,7 @@ val prefClass = mutableClassDefBy(savedFeedPrefClassFingerprint.classDef)
                 move-result-object v0
                 return-object v0
             :piko_stock_get
+nop
                 """.trimIndent(),
             )
 
@@ -188,6 +201,7 @@ val prefClass = mutableClassDefBy(savedFeedPrefClassFingerprint.classDef)
                 sput-object p1, $prefClassType->pikoSessionFeed:Ljava/lang/String;
                 return-void
 :piko_stock_set
+nop
                 """.trimIndent(),
             )
 
@@ -207,6 +221,7 @@ val prefClass = mutableClassDefBy(savedFeedPrefClassFingerprint.classDef)
                     const/4 v0, 0x0
                     sput-object v0, $prefClassType->pikoSessionFeed:Ljava/lang/String;
                     :piko_keep_feed
+nop
                     """.trimIndent(),
                 )
             }
