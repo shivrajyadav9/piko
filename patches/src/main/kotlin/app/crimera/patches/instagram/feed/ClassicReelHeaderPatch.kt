@@ -1,6 +1,7 @@
 package app.crimera.patches.instagram.feed
 
 import app.crimera.patches.instagram.utils.Constants.COMPATIBILITY_INSTAGRAM
+import app.crimera.patches.instagram.utils.registerMyPatchesToggle
 import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
 import app.morphe.patcher.extensions.InstructionExtensions.removeInstruction
 import app.morphe.patcher.patch.PatchException
@@ -32,7 +33,7 @@ private const val SETTINGS_STATUS_CLASS = "Lapp/morphe/extension/instagram/setti
 @Suppress("unused")
 val classicReelHeaderPatch = bytecodePatch(
     name = "Classic reel header above video",
-    description = "Moves vertical reel username and menu button above outside the video with equal top/bottom center-crop across all Home feeds (For You, Following, Favorites). Adds a toggle in Distraction free settings.",
+    description = "Moves vertical reel username and menu button above outside the video with equal top/bottom center-crop across all Home feeds (For You, Following, Favorites). Adds a toggle in My Patches settings.",
 ) {
     compatibleWith(COMPATIBILITY_INSTAGRAM)
 
@@ -338,58 +339,6 @@ if (!has08fCmp || !has075fFloor || !has08fFloor) continue
     finalize {
         val binderType = resolvedBinderType ?: return@finalize
 
-        classDefByOrNull(SETTINGS_STATUS_CLASS)?.let { statusDef ->
-            mutableClassDefBy(statusDef).methods
-                .firstOrNull { it.name == "distractionFreeSection" && it.parameters.isEmpty() }
-                ?.addInstructions(
-                    0,
-                    """
-                        const/4 v0, 0x1
-                        return v0
-                    """.trimIndent(),
-                )
-        }
-
-        classDefByOrNull(SCREEN_BUILDER_CLASS)?.let { sbDef ->
-            val mutableSb = mutableClassDefBy(sbDef)
-            val helperImpl = MutableMethodImplementation(4)
-            helperImpl.addInstruction(BuilderInstruction10x(Opcode.RETURN_VOID))
-            val addToggleMethod = ImmutableMethod(
-                SCREEN_BUILDER_CLASS,
-                "pikoAddClassicReelHeaderToggle",
-                emptyList(),
-                "V",
-                AccessFlags.PRIVATE.value,
-                null,
-                null,
-                helperImpl,
-            ).toMutable()
-            addToggleMethod.addInstructions(
-                0,
-                """
-                    const-string v0, "Classic reel header above video"
-                    const-string v1, "Show username and menu button above vertical reels (center-cropped equally from top and bottom) in all Home feeds"
-                    invoke-static {}, $binderType->pikoGetClassicReelHeaderSetting()$BOOLEAN_SETTING_CLASS
-                    move-result-object v2
-                    invoke-direct {p0, v0, v1, v2}, $SCREEN_BUILDER_CLASS->addLockableSwitch(Ljava/lang/String;Ljava/lang/String;$BOOLEAN_SETTING_CLASS)V
-                    return-void
-                """.trimIndent(),
-            )
-            addToggleMethod.removeInstruction(addToggleMethod.implementation!!.instructions.size - 1)
-            mutableSb.methods.add(addToggleMethod)
-
-            mutableSb.methods
-                .firstOrNull { it.name == "distractionFreeSection" && it.parameters.isEmpty() }
-                ?.let { sectionMethod ->
-                    val insns = sectionMethod.implementation!!.instructions
-                    val lastReturnIdx = insns.indexOfLast { it.opcode == Opcode.RETURN_VOID }
-                    if (lastReturnIdx >= 0) {
-                        sectionMethod.addInstructions(
-                            lastReturnIdx,
-                            "invoke-direct {p0}, $SCREEN_BUILDER_CLASS->pikoAddClassicReelHeaderToggle()V",
-                        )
-                    }
-                }
-        }
+          registerMyPatchesToggle("pikoAddClassicReelHeaderToggle", "Classic reel header above video", "Move vertical reel username and menu above outside the video", binderType, "pikoGetClassicReelHeaderSetting")
     }
 }
