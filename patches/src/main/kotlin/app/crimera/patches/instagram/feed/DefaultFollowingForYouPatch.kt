@@ -124,7 +124,7 @@ val prefClass = mutableClassDefBy(savedFeedPrefClassFingerprint.classDef)
             // 2. Default every cold launch to FOLLOWING while letting the user switch to For You
             //    or Favorites during the session via the Instagram logo dropdown.
          
-            prefClass.fields.add(
+            prefClass.staticFields.add(
                 ImmutableField(
                     prefClassType,
                     "pikoSessionFeed",
