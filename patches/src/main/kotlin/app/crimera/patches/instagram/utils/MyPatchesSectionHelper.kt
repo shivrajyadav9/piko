@@ -8,6 +8,8 @@ import app.morphe.patcher.util.proxy.mutableTypes.MutableField.Companion.toMutab
 import app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.Companion.toMutable
 import com.android.tools.smali.dexlib2.AccessFlags
 import com.android.tools.smali.dexlib2.Opcode
+import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
+import com.android.tools.smali.dexlib2.iface.reference.MethodReference
 import com.android.tools.smali.dexlib2.immutable.ImmutableField
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodImplementation
@@ -19,7 +21,7 @@ internal const val BASE_BOOLEAN_SETTING_CLASS = "Lapp/morphe/extension/crimera/s
 internal const val RESTART_POLICY_CLASS = "Lapp/morphe/extension/instagram/settings/RestartPolicy;"
 internal const val SHARED_PREF_CLASS = "Lapp/morphe/extension/crimera/sharedPreference/SharedPref;"
 internal const val UTILS_CLASS = "Lapp/morphe/extension/shared/Utils;"
-private const val PIKO_FRAGMENT_MY_PATCHES = "piko_my_patches"
+private const val PIKO_FRAGMENT_MY_PATCHES = "piko_frag_my_patches"
 
 internal fun addInstagramBooleanSettingHelpers(
     targetClass: MutableClass,
@@ -220,6 +222,51 @@ internal fun BytecodePatchContext.registerMyPatchesToggle(
             :piko_not_my_patches
             """.trimIndent(),
         )
+
+            classDefByOrNull("Lapp/morphe/extension/instagram/settings/preference/widgets/ButtonPref;")?.let { buttonPrefDef ->
+                mutableClassDefBy(buttonPrefDef).methods.firstOrNull {
+                    it.name == "iconResourceNameForKey" &&
+                        it.parameterTypes.map(CharSequence::toString) == listOf("Ljava/lang/String;") &&
+                        it.returnType == "Ljava/lang/String;"
+                }?.addInstructions(
+                    0,
+                    """
+                    const-string v0, "$PIKO_FRAGMENT_MY_PATCHES"
+                    invoke-virtual {v0, p0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+                    move-result v0
+                    if-eqz v0, :piko_keep_icon
+                    const-string p0, "piko_frag_dev_options"
+                    :piko_keep_icon
+                    """.trimIndent(),
+                )
+            }
+
+            classDefByOrNull("Lapp/morphe/extension/instagram/settings/preference/fragments/FragmentHook;")?.let { fragmentHookDef ->
+                val startFragment = mutableClassDefBy(fragmentHookDef).methods.firstOrNull {
+                    it.name == "startFragment" &&
+                        it.parameterTypes.map(CharSequence::toString) == listOf("Ljava/lang/String;") &&
+                        it.returnType == "V"
+                }
+                val startActivityRef = startFragment?.implementation?.instructions
+                    ?.filterIsInstance<ReferenceInstruction>()
+                    ?.mapNotNull { it.reference as? MethodReference }
+                    ?.firstOrNull { it.name == "startPikoActivity" }
+                if (startFragment != null && startActivityRef != null) {
+                    startFragment.addInstructions(
+                        0,
+                        """
+                        const-string v0, "$PIKO_FRAGMENT_MY_PATCHES"
+                        invoke-virtual {v0, p0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+                        move-result v0
+                        if-eqz v0, :piko_other_frag
+                        const-string v1, "My Patches"
+                        invoke-static {p0, v1}, ${startActivityRef.definingClass}->startPikoActivity(Ljava/lang/String;Ljava/lang/String;)V
+                        return-void
+                        :piko_other_frag
+                        """.trimIndent(),
+                    )
+                }
+            }
     }
 
     if (screenBuilder.methods.none { it.name == helperMethodName }) {
