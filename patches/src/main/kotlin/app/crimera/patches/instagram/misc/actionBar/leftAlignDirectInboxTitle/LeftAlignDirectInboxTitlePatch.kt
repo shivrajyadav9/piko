@@ -179,6 +179,7 @@ val leftAlignDirectInboxTitlePatch =
 
                 bindMethod.addInstructions(moveResultIndex + 1, hookSmali)
             }
+        }
             finalize {
                 registerMyPatchesToggle("pikoAddLeftAlignDirectToggle", "Left-align Direct inbox username", "Move the Direct inbox header username to the top-left corner", "Lcom/instagram/igds/components/actionbar/IgdsActionBar;", "pikoGetLeftAlignDirectSetting")
                     
