@@ -240,10 +240,9 @@ prefSetter = setters.firstOrNull { methodReferencesString(it, "last_selected_fee
                 if-nez v0, :piko_cached
                 new-instance v0, $BOOLEAN_SETTING_CLASS
                 const-string v1, "piko_swipe_following_for_you"
-                const-string v2, "Swipe between Following & For You"
+                sget-object v2, Ljava/lang/Boolean;->TRUE:Ljava/lang/Boolean;
                 sget-object v3, $RESTART_POLICY_CLASS->NOT_REQUIRED:$RESTART_POLICY_CLASS
-                const/4 v4, 0x1
-                invoke-direct {v0, v1, v2, v3, v4}, $BOOLEAN_SETTING_CLASS-><init>(Ljava/lang/String;Ljava/lang/String;${RESTART_POLICY_CLASS}Z)V
+                invoke-direct {v0, v1, v2, v3}, $BOOLEAN_SETTING_CLASS-><init>(Ljava/lang/String;Ljava/lang/Boolean;$RESTART_POLICY_CLASS)V
                 sput-object v0, $SWIPE_NAV_CONTAINER_CLASS->pikoSwipeFollowingSetting:$BOOLEAN_SETTING_CLASS
                 :piko_cached
                 return-object v0
