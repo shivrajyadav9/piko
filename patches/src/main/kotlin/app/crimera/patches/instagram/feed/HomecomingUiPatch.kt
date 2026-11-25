@@ -41,7 +41,7 @@ val homecomingUiPatch = bytecodePatch(
     compatibleWith(COMPATIBILITY_INSTAGRAM)
 
     execute {
-        val screenBuilder = classDefByOrNull(SCREEN_BUILDER_CLASS) ?: return@execute
+        val screenBuilder = classDefByOrNull(SCREEN_BUILDER_CLASS)?.let { mutableClassDefBy(it) } ?: return@execute
         val helperType = screenBuilder.type
 
         // 1. Static setting cache field
@@ -153,7 +153,7 @@ val homecomingUiPatch = bytecodePatch(
         }
 
         // 5. Hook X.02wx.A04
-        classDefByOrNull("LX/02wx;")?.methods?.firstOrNull {
+        classDefByOrNull("LX/02wx;")?.let { mutableClassDefBy(it) }?.methods?.firstOrNull {
             it.name == "A04" && it.returnType == "Z" && it.implementation != null
         }?.addInstructions(
             0,
@@ -169,7 +169,7 @@ val homecomingUiPatch = bytecodePatch(
         )
 
         // 6. Hook X.03ce.A07 and X.03ce.A09
-        val x03ce = classDefByOrNull("LX/03ce;")
+        val x03ce = classDefByOrNull("LX/03ce;")?.let { mutableClassDefBy(it) }
         listOf("A07", "A09").forEach { methodName ->
             x03ce?.methods?.firstOrNull {
                 it.name == methodName && it.returnType == "Z" && it.implementation != null
@@ -189,8 +189,9 @@ val homecomingUiPatch = bytecodePatch(
 
         // 7. Find MergedFeedHostFragment.onViewCreated:restoreStartingTab -> X.07AW and hook
         var targetOwnerType: String? = null
-        outer@ for (cls in classes) {
-            for (method in cls.methods) {
+        classDefForEach { classDef ->
+            if (targetOwnerType != null) return@classDefForEach
+            for (method in classDef.methods) {
                 if (method.name != "onViewCreated") continue
                 val insns = method.implementation?.instructions ?: continue
                 val hasMarker = insns.any { insn ->
@@ -212,14 +213,14 @@ val homecomingUiPatch = bytecodePatch(
                     val params = ref.parameterTypes.map { it.toString() }
                     if (USER_SESSION_CLASS in params && "Z" in params) {
                         targetOwnerType = defClass
-                        break@outer
+                        return@classDefForEach
                     }
                 }
             }
         }
 
         val resolvedType = targetOwnerType ?: "LX/07AW;"
-        classDefByOrNull(resolvedType)?.methods?.filter { m ->
+        classDefByOrNull(resolvedType)?.let { mutableClassDefBy(it) }?.methods?.filter { m ->
             m.returnType == "Z" &&
                 m.parameterTypes.size == 3 &&
                 m.parameterTypes[0].toString() == USER_SESSION_CLASS &&
@@ -243,7 +244,7 @@ val homecomingUiPatch = bytecodePatch(
     }
 
     finalize {
-        classDefByOrNull(SETTINGS_STATUS_CLASS)
+        classDefByOrNull(SETTINGS_STATUS_CLASS)?.let { mutableClassDefBy(it) }
             ?.methods
             ?.firstOrNull { it.name == "distractionFreeSection" && it.parameters.isEmpty() }
             ?.addInstructions(
@@ -254,7 +255,7 @@ val homecomingUiPatch = bytecodePatch(
                 """.trimIndent(),
             )
 
-        val screenBuilder = classDefByOrNull(SCREEN_BUILDER_CLASS) ?: return@finalize
+        val screenBuilder = classDefByOrNull(SCREEN_BUILDER_CLASS)?.let { mutableClassDefBy(it) } ?: return@finalize
         val sectionMethod = screenBuilder.methods.firstOrNull {
             it.name == "distractionFreeSection" && it.parameters.isEmpty()
         } ?: return@finalize
