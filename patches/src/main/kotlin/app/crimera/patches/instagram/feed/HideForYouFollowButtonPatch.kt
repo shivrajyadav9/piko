@@ -38,7 +38,7 @@ val hideForYouFollowButtonPatch =
 
         addInstagramBooleanSettingHelpers(followClass, "pikoHideFollowSetting", "pikoGetHideFollowSetting", "pikoIsHideFollowEnabled", "piko_hide_for_you_follow_button", defaultValue = true, restartRequired = false)
 
-            followClass.fields.add(
+            followClass.staticFields.add(
                 ImmutableField(
                     FOLLOW_BUTTON_BASE_CLASS,
                     "pikoFeedHeaderId",
