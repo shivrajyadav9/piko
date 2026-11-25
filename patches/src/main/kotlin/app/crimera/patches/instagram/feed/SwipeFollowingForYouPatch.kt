@@ -199,6 +199,15 @@ prefSetter = setters.firstOrNull { methodReferencesString(it, "last_selected_fee
                 null, null, null,
             ).toMutable(),
         )
+swipeMutable.fields.add(
+    ImmutableField(
+        SWIPE_NAV_CONTAINER_CLASS,
+"pikoDownY",
+"F",
+publicStaticFlags,
+null, null, null,
+).toMutable(),
+)
         swipeMutable.fields.add(
             ImmutableField(
                 SWIPE_NAV_CONTAINER_CLASS,
@@ -285,6 +294,9 @@ prefSetter = setters.firstOrNull { methodReferencesString(it, "last_selected_fee
                 invoke-virtual {p0}, Landroid/view/MotionEvent;->getX()F
                 move-result v0
                 sput v0, $SWIPE_NAV_CONTAINER_CLASS->pikoDownX:F
+invoke-virtual {p0}, Landroid/view/MotionEvent;->getY()F
+move-result v0
+sput v0, $SWIPE_NAV_CONTAINER_CLASS->pikoDownY:F
                 const/4 v0, 0x0
                 sput-boolean v0, $SWIPE_NAV_CONTAINER_CLASS->pikoHandledSwipe:Z
                 return v0
@@ -297,8 +309,89 @@ prefSetter = setters.firstOrNull { methodReferencesString(it, "last_selected_fee
                 return v0
                 :piko_reset
                 const/4 v0, 0x0
-                sput-boolean v0, $SWIPE_NAV_CONTAINER_CLASS->pikoHandledSwipe:Z
-                return v0
+sput-boolean v0, $SWIPE_NAV_CONTAINER_CLASS->pikoHandledSwipe:Z
+                      return v0
+            """.trimIndent(),
+        )
+           
+
+addSwipeStaticMethod(
+    "pikoHandleConsumedTouch",
+listOf("Landroid/view/MotionEvent;"),
+"Z",
+3,
+"""
+    sget-boolean v0, $SWIPE_NAV_CONTAINER_CLASS->pikoHandledSwipe:Z
+if-nez v0, :piko_consumed
+const/4 v0, 0x0
+return v0
+:piko_consumed
+invoke-virtual {p0}, Landroid/view/MotionEvent;->getActionMasked()I
+move-result v0
+const/4 v1, 0x1
+if-eq v0, v1, :piko_reset
+const/4 v1, 0x3
+if-ne v0, v1, :piko_ret_true
+:piko_reset
+const/4 v0, 0x0
+sput-boolean v0, $SWIPE_NAV_CONTAINER_CLASS->pikoHandledSwipe:Z
+:piko_ret_true
+const/4 v0, 0x1
+return v0
+""".trimIndent(),
+)
+addSwipeStaticMethod(
+    "pikoHasScrollableLeftPager",
+listOf("Landroid/view/View;", "I"),
+"Z",
+6,
+"""
+    if-eqz p0, :piko_ret_false
+const/4 v0, 0x5
+if-gt p1, v0, :piko_ret_false
+invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+move-result-object v0
+invoke-virtual {v0}, Ljava/lang/Class;->getName()Ljava/lang/String;
+move-result-object v0
+const-string v1, "ViewPager"
+invoke-virtual {v0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+move-result v1
+if-eqz v1, :piko_check_children
+const-string v1, "ReboundViewPager"
+invoke-virtual {v0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+move-result v1
+if-nez v1, :piko_check_children
+const/4 v0, -0x1
+invoke-virtual {p0, v0}, Landroid/view/View;->canScrollHorizontally(I)Z
+move-result v0
+if-eqz v0, :piko_check_children
+const/4 v0, 0x1
+return v0
+:piko_check_children
+instance-of v0, p0, Landroid/view/ViewGroup;
+if-eqz v0, :piko_ret_false
+check-cast p0, Landroid/view/ViewGroup;
+invoke-virtual {p0}, Landroid/view/ViewGroup;->getChildCount()I
+move-result v0
+const/4 v1, 0x0
+add-int/lit8 v2, p1, 0x1
+:piko_loop
+if-ge v1, v0, :piko_ret_false
+invoke-virtual {p0, v1}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
+move-result-object v3
+invoke-static {v3, v2}, $SWIPE_NAV_CONTAINER_CLASS->pikoHasScrollableLeftPager(Landroid/view/View;I)Z
+move-result v3
+if-eqz v3, :piko_next
+const/4 v0, 0x1
+return v0
+:piko_next
+add-int/lit8 v1, v1, 0x1
+goto :piko_loop
+:piko_ret_false
+const/4 v0, 0x0
+return v0
+""".trimIndent(),
+)
             """.trimIndent(),
         )
 
@@ -322,9 +415,13 @@ prefSetter = setters.firstOrNull { methodReferencesString(it, "last_selected_fee
             "pikoFilterIntercept",
             listOf(SWIPE_NAV_CONTAINER_CLASS, "Landroid/view/MotionEvent;", "Z"),
             "Z",
-            9,
+10,
             """
                 if-nez p2, :piko_check_pref
+invoke-virtual {p1}, Landroid/view/MotionEvent;->getActionMasked()I
+move-result v0
+const/4 v1, 0x2
+if-eq v0, v1, :piko_check_pref
                 return p2
                 :piko_check_pref
                 invoke-static {}, $UTILS_CLASS->getContext()Landroid/content/Context;
@@ -370,22 +467,44 @@ prefSetter = setters.firstOrNull { methodReferencesString(it, "last_selected_fee
                 :piko_got_following
                 const/4 v3, 0x0
                 if-eqz v2, :piko_check_for_you
+if-eqz p2, :piko_return_orig
                 cmpg-float v4, v1, v3
                 if-lez v4, :piko_return_orig
                 sget-object v4, ${resolvedEnumClass.type}->$resolvedForYouField:${resolvedEnumClass.type}
                 invoke-virtual {v0, v4}, ${resolvedSwitcherClass.type}->${resolvedSwitchMethod.name}(${resolvedEnumClass.type})V
                 const/4 v4, 0x1
                 sput-boolean v4, $SWIPE_NAV_CONTAINER_CLASS->pikoHandledSwipe:Z
-                const/4 v4, 0x0
                 return v4
                 :piko_check_for_you
+if-eqz p2, :piko_check_fallback_for_you
                 cmpl-float v4, v1, v3
-                if-gez v4, :piko_return_orig
+if-ltz v4, :piko_switch_to_following
+goto :piko_return_orig
+:piko_check_fallback_for_you
+const v4, -0x3d4c0000
+cmpg-float v4, v1, v4
+if-gez v4, :piko_return_orig
+invoke-static {v1}, Ljava/lang/Math;->abs(F)F
+move-result v4
+invoke-virtual {p1}, Landroid/view/MotionEvent;->getY()F
+move-result v5
+sget v6, $SWIPE_NAV_CONTAINER_CLASS->pikoDownY:F
+sub-float/2addr v5, v6
+invoke-static {v5}, Ljava/lang/Math;->abs(F)F
+move-result v5
+const v6, 0x3fc00000
+mul-float/2addr v5, v6
+cmpl-float v4, v4, v5
+if-lez v4, :piko_return_orig
+const/4 v4, 0x0
+invoke-static {p0, v4}, $SWIPE_NAV_CONTAINER_CLASS->pikoHasScrollableLeftPager(Landroid/view/View;I)Z
+move-result v4
+if-nez v4, :piko_return_orig
+:piko_switch_to_following
                 sget-object v4, ${resolvedEnumClass.type}->$resolvedFollowingField:${resolvedEnumClass.type}
                 invoke-virtual {v0, v4}, ${resolvedSwitcherClass.type}->${resolvedSwitchMethod.name}(${resolvedEnumClass.type})V
                 const/4 v4, 0x1
                 sput-boolean v4, $SWIPE_NAV_CONTAINER_CLASS->pikoHandledSwipe:Z
-                const/4 v4, 0x0
                 return v4
                 :piko_return_orig
                 return p2
@@ -455,6 +574,24 @@ prefSetter = setters.firstOrNull { methodReferencesString(it, "last_selected_fee
                 :piko_continue
             """.trimIndent(),
         )
+
+val onTouchMethod = swipeMutable.methods.firstOrNull {
+    it.name == "onTouchEvent" &&
+it.parameterTypes.size == 1 &&
+it.parameterTypes[0].toString() == "Landroid/view/MotionEvent;" &&
+it.returnType == "Z"
+} ?: throw PatchException("Could not find onTouchEvent on SwipeNavigationContainer")
+onTouchMethod.addInstructions(
+    0,
+"""
+    invoke-static/range {p1 .. p1}, $SWIPE_NAV_CONTAINER_CLASS->pikoHandleConsumedTouch(Landroid/view/MotionEvent;)Z
+move-result v0
+if-eqz v0, :piko_touch_continue
+const/4 v0, 0x1
+return v0
+:piko_touch_continue
+""".trimIndent(),
+)
     }
 
     finalize {
