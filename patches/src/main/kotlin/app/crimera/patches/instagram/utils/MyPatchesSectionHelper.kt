@@ -3,6 +3,7 @@ package app.crimera.patches.instagram.utils
 import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
 import app.morphe.patcher.extensions.InstructionExtensions.removeInstruction
 import app.morphe.patcher.patch.BytecodePatchContext
+import app.morphe.patcher.patch.PatchException
 import app.morphe.patcher.util.proxy.mutableTypes.MutableClass
 import app.morphe.patcher.util.proxy.mutableTypes.MutableField.Companion.toMutable
 import app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.Companion.toMutable
@@ -207,10 +208,7 @@ internal fun BytecodePatchContext.registerMyPatchesToggle(
             """.trimIndent(),
         )
 
-        screenBuilder.methods.firstOrNull {
-            it.name == "buildFragment" &&
-                it.parameterTypes.map(CharSequence::toString) == listOf("Ljava/lang/String;")
-        }?.addInstructions(
+        (screenBuilder.methods.firstOrNull { it.name == "buildFragment" && it.parameterTypes.firstOrNull()?.toString() == "Ljava/lang/String;" } ?: screenBuilder.methods.firstOrNull { m -> m.parameterTypes.firstOrNull()?.toString() == "Ljava/lang/String;" && m.implementation?.instructions?.any { insn -> ((insn as? ReferenceInstruction)?.reference as? MethodReference)?.name == "buildSettingsPage" } == true } ?: throw PatchException("Could not find ScreenBuilder.buildFragment")).addInstructions(
             0,
             """
             const-string v0, "$PIKO_FRAGMENT_MY_PATCHES"
@@ -272,6 +270,13 @@ nop
             }
     }
 
+        val helperType = screenBuilder.fields.firstOrNull { it.name == "helper" }?.type
+        val switchPrefMethod = helperType?.let {
+            classDefByOrNull(it)?.methods?.firstOrNull { m ->
+                m.name == "switchPreference" && m.parameters.size == 3
+            }
+        }
+        val regCount = if (switchPrefMethod != null) 5 else 4
     if (screenBuilder.methods.none { it.name == helperMethodName }) {
         val addToggleMethod =
             ImmutableMethod(
@@ -283,13 +288,31 @@ nop
                 null,
                 null,
                 ImmutableMethodImplementation(
-                    4,
+                    regCount,
                     listOf(ImmutableInstruction10x(Opcode.RETURN_VOID)),
                     null,
                     null,
                 ),
             ).toMutable()
 
+        if (switchPrefMethod != null) {
+            val switchRetType = switchPrefMethod.returnType
+            val switchSettingParam = switchPrefMethod.parameters[2].type
+            addToggleMethod.addInstructions(
+                0,
+                """
+                iget-object v0, p0, $SCREEN_BUILDER_CLASS->helper:$helperType
+                const-string v1, "$title"
+                const-string v2, "$description"
+                invoke-static {}, $settingOwnerType->$settingGetterName()$BOOLEAN_SETTING_CLASS
+                move-result-object v3
+                invoke-virtual {v0, v1, v2, v3}, $helperType->switchPreference(Ljava/lang/String;Ljava/lang/String;$switchSettingParam)$switchRetType
+                move-result-object v0
+                invoke-direct {p0, v0}, $SCREEN_BUILDER_CLASS->addPreference($switchRetType)V
+                return-void
+                """.trimIndent(),
+            )
+        } else {
         addToggleMethod.addInstructions(
             0,
             """
@@ -301,6 +324,7 @@ nop
             return-void
             """.trimIndent(),
         )
+        }
         addToggleMethod.removeInstruction(addToggleMethod.implementation!!.instructions.size - 1)
         screenBuilder.methods.add(addToggleMethod)
 
