@@ -4,6 +4,7 @@ import app.crimera.patches.instagram.utils.Constants.COMPATIBILITY_INSTAGRAM
 import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
 import app.morphe.patcher.extensions.InstructionExtensions.removeInstruction
 import app.morphe.patcher.patch.bytecodePatch
+import app.morphe.patcher.util.proxy.mutableTypes.MutableField.Companion.toMutable
 import app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.Companion.toMutable
 import com.android.tools.smali.dexlib2.AccessFlags
 import com.android.tools.smali.dexlib2.Opcode
@@ -55,7 +56,7 @@ val homecomingUiPatch = bytecodePatch(
                     null,
                     null,
                     null,
-                ),
+                ).toMutable(),
             )
         }
 
@@ -256,7 +257,7 @@ val homecomingUiPatch = bytecodePatch(
             )
 
         val screenBuilder = classDefByOrNull(SCREEN_BUILDER_CLASS)?.let { mutableClassDefBy(it) } ?: return@finalize
-        val sectionMethod = screenBuilder.methods.firstOrNull {
+        var sectionMethod = screenBuilder.methods.firstOrNull {
             it.name == "distractionFreeSection" && it.parameters.isEmpty()
         } ?: return@finalize
         val lastReturnIdx = sectionMethod.implementation?.instructions?.indexOfLast {
