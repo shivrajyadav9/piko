@@ -7,6 +7,8 @@
 package app.crimera.patches.instagram.misc.actionBar.leftAlignDirectInboxTitle
 
 import app.crimera.patches.instagram.utils.Constants.COMPATIBILITY_INSTAGRAM
+import app.crimera.patches.instagram.utils.addInstagramBooleanSettingHelpers
+import app.crimera.patches.instagram.utils.registerMyPatchesToggle
 import app.morphe.patcher.Fingerprint
 import app.morphe.patcher.InstructionLocation.MatchAfterImmediately
 import app.morphe.patcher.checkCast
@@ -67,7 +69,8 @@ val leftAlignDirectInboxTitlePatch =
 
         execute {
             val actionBarClass = igdsActionBarBindTitleFingerprint.classDef
-
+        addInstagramBooleanSettingHelpers(actionBarClass, "pikoLeftAlignDirectSetting", "pikoGetLeftAlignDirectSetting", "pikoIsLeftAlignDirectEnabled", "piko_left_align_direct_inbox_title", defaultValue = true, restartRequired = false)
+        
             // 1. Add helper on IgdsActionBar to tag the Direct inbox instance.
             val markHelper =
                 ImmutableMethod(
@@ -122,7 +125,10 @@ val leftAlignDirectInboxTitlePatch =
             normalizeHelper.addInstructions(
                 0,
                 """
-                const v0, 0x70696b6f
+                        invoke-static {}, Lcom/instagram/igds/components/actionbar/IgdsActionBar;->pikoIsLeftAlignDirectEnabled()Z
+            move-result v0
+            if-eqz v0, :keep
+            const v0, 0x70696b6f
                 invoke-virtual {p0, v0}, Landroid/view/View;->getTag(I)Ljava/lang/Object;
                 move-result-object v1
                 if-eqz v1, :keep
@@ -173,5 +179,8 @@ val leftAlignDirectInboxTitlePatch =
 
                 bindMethod.addInstructions(moveResultIndex + 1, hookSmali)
             }
-        }
+            finalize {
+                registerMyPatchesToggle("pikoAddLeftAlignDirectToggle", "Left-align Direct inbox username", "Move the Direct inbox header username to the top-left corner", "Lcom/instagram/igds/components/actionbar/IgdsActionBar;", "pikoGetLeftAlignDirectSetting")
+                    
+            }
     }
