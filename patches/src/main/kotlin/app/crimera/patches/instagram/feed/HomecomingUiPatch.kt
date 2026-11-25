@@ -264,9 +264,6 @@ val homecomingUiPatch = bytecodePatch(
             it.opcode == Opcode.RETURN_VOID
         } ?: -1
         if (lastReturnIdx < 0) return@finalize
-        if (sectionMethod.implementation == null) {
-            sectionMethod.implementation = MutableMethodImplementation(4)
-        }
         sectionMethod.removeInstruction(lastReturnIdx)
         sectionMethod.addInstructions(
             lastReturnIdx,
