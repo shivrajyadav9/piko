@@ -217,11 +217,19 @@ nop
                 }?.addInstructions(
                     0,
                     """
-                    if-nez p1, :piko_keep_feed
                     const/4 v0, 0x0
                     sput-object v0, $prefClassType->pikoSessionFeed:Ljava/lang/String;
-                    :piko_keep_feed
-nop
+                    """.trimIndent(),
+                )
+                mutableClassDefBy(activityClass).methods.firstOrNull {
+                    it.name == "onDestroy" &&
+                        it.returnType == "V" &&
+                        it.parameterTypes.isEmpty()
+                }?.addInstructions(
+                    0,
+                    """
+                    const/4 v0, 0x0
+                    sput-object v0, $prefClassType->pikoSessionFeed:Ljava/lang/String;
                     """.trimIndent(),
                 )
             }
