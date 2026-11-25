@@ -2,6 +2,7 @@ package app.crimera.patches.instagram.feed
 
 import app.crimera.patches.instagram.utils.Constants.COMPATIBILITY_INSTAGRAM
 import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
+import app.morphe.patcher.extensions.InstructionExtensions.removeInstruction
 import app.morphe.patcher.patch.PatchException
 import app.morphe.patcher.patch.bytecodePatch
 import app.morphe.patcher.util.proxy.mutableTypes.MutableField.Companion.toMutable
@@ -9,6 +10,7 @@ import app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.Companion.toMuta
 import com.android.tools.smali.dexlib2.AccessFlags
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.builder.MutableMethodImplementation
+import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction10x
 import com.android.tools.smali.dexlib2.iface.ClassDef
 import com.android.tools.smali.dexlib2.iface.Method
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
@@ -457,45 +459,59 @@ prefSetter = setters.firstOrNull { methodReferencesString(it, "last_selected_fee
     }
 
     finalize {
-        val settingsStatusMutable = mutableClassDefBy(SETTINGS_STATUS_CLASS)
-        val distractionStatus = settingsStatusMutable.methods.first { it.name == "distractionFreeSection" }
-        distractionStatus.addInstructions(
-            0,
-            """
-                const/4 v0, 0x1
-                return v0
-            """.trimIndent(),
-        )
+        classDefByOrNull(SETTINGS_STATUS_CLASS)?.let { statusDef ->
+            mutableClassDefBy(statusDef).methods
+                .firstOrNull { it.name == "distractionFreeSection" && it.parameters.isEmpty() }
+                ?.addInstructions(
+                    0,
+                    """
+                        const/4 v0, 0x1
+                        return v0
+                    """.trimIndent(),
+                )
+        }
 
-        val screenBuilderMutable = mutableClassDefBy(SCREEN_BUILDER_CLASS)
-        val toggleHelper = ImmutableMethod(
-            SCREEN_BUILDER_CLASS,
-            "pikoAddSwipeFollowingToggle",
-            emptyList(),
-            "V",
-            AccessFlags.PRIVATE.value,
-            null,
-            null,
-            ImmutableMethodImplementation(4, emptyList(), null, null),
-        ).toMutable()
-        toggleHelper.addInstructions(
-            0,
-            """
-                const-string v0, "Swipe between Following & For You"
-                const-string v1, "Start Home on Following and swipe horizontally between Following and For You"
-                invoke-static {}, $SWIPE_NAV_CONTAINER_CLASS->pikoGetSwipeFollowingSetting()$BOOLEAN_SETTING_CLASS
-                move-result-object v2
-                invoke-virtual {p0, v0, v1, v2}, $SCREEN_BUILDER_CLASS->addLockableSwitch(Ljava/lang/String;Ljava/lang/String;$BOOLEAN_SETTING_CLASS)V
-                return-void
-            """.trimIndent(),
-        )
-        screenBuilderMutable.methods.add(toggleHelper)
+        classDefByOrNull(SCREEN_BUILDER_CLASS)?.let { sbDef ->
+            val mutableSb = mutableClassDefBy(sbDef)
 
-        val buildDistractionFree = screenBuilderMutable.methods.first { it.name == "buildDistractionFreeSection" }
-        val retIdx = buildDistractionFree.implementation!!.instructions.indexOfLast { it.opcode == Opcode.RETURN_VOID }
-        buildDistractionFree.addInstructions(
-            retIdx,
-            "invoke-direct {p0}, $SCREEN_BUILDER_CLASS->pikoAddSwipeFollowingToggle()V",
-        )
+            val helperImpl = MutableMethodImplementation(4)
+            helperImpl.addInstruction(BuilderInstruction10x(Opcode.RETURN_VOID))
+            val addToggleMethod = ImmutableMethod(
+                SCREEN_BUILDER_CLASS,
+                "pikoAddSwipeFollowingToggle",
+                emptyList(),
+                "V",
+                AccessFlags.PRIVATE.value,
+                null,
+                null,
+                helperImpl,
+            ).toMutable()
+            addToggleMethod.addInstructions(
+                0,
+                """
+                    const-string v0, "Swipe between Following & For You"
+                    const-string v1, "Start Home on Following and swipe horizontally between Following and For You"
+                    invoke-static {}, $SWIPE_NAV_CONTAINER_CLASS->pikoGetSwipeFollowingSetting()${BOOLEAN_SETTING_CLASS}
+                    move-result-object v2
+                    invoke-direct {p0, v0, v1, v2}, $SCREEN_BUILDER_CLASS->addLockableSwitch(Ljava/lang/String;Ljava/lang/String;${BOOLEAN_SETTING_CLASS})V
+                    return-void
+                """.trimIndent(),
+            )
+            addToggleMethod.removeInstruction(addToggleMethod.implementation!!.instructions.size - 1)
+            mutableSb.methods.add(addToggleMethod)
+
+            mutableSb.methods
+                .firstOrNull { it.name == "distractionFreeSection" && it.parameters.isEmpty() }
+                ?.let { sectionMethod ->
+                    val insns = sectionMethod.implementation!!.instructions
+                    val lastReturnIdx = insns.indexOfLast { it.opcode == Opcode.RETURN_VOID }
+                    if (lastReturnIdx >= 0) {
+                        sectionMethod.addInstructions(
+                            lastReturnIdx,
+                            "invoke-direct {p0}, $SCREEN_BUILDER_CLASS->pikoAddSwipeFollowingToggle()V",
+                        )
+                    }
+                }
+        }
     }
 }
