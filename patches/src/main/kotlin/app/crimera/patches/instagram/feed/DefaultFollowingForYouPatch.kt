@@ -7,6 +7,8 @@
 package app.crimera.patches.instagram.feed
 
 import app.crimera.patches.instagram.utils.Constants.COMPATIBILITY_INSTAGRAM
+import app.crimera.patches.instagram.utils.addInstagramBooleanSettingHelpers
+import app.crimera.patches.instagram.utils.registerMyPatchesToggle
 import app.morphe.patcher.Fingerprint
 import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
 import app.morphe.patcher.extensions.InstructionExtensions.removeInstruction
@@ -59,7 +61,13 @@ val defaultFollowingForYouPatch =
     ) {
         compatibleWith(COMPATIBILITY_INSTAGRAM)
 
+var resolvedPrefClassType: String? = null
         execute {
+val prefClass = mutableClassDefBy(savedFeedPrefClassFingerprint.classDef)
+            val prefClassType = prefClass.type
+            resolvedPrefClassType = prefClassType
+            addInstagramBooleanSettingHelpers(prefClass, "pikoDefaultFollowingSetting", "pikoGetDefaultFollowingSetting", "pikoIsDefaultFollowingEnabled", "piko_default_following_for_you", defaultValue = true, restartRequired = true)
+
             // 1. Patch each direct read of REMEMBERED_FEED_FLAG and FOR_YOU_PICKER_FLAG.
             var patchedReads = 0
             classDefForEach { classDef ->
@@ -94,8 +102,15 @@ val defaultFollowingForYouPatch =
                                 it.parameterTypes == method.parameterTypes
                         }
                         for ((moveResultIdx, resReg) in insertPoints.asReversed()) {
-                            val constInsn = if (resReg < 16) "const/4 v$resReg, 0x1" else "const/16 v$resReg, 0x1"
-                            mutableMethod.addInstructions(moveResultIdx + 1, constInsn)
+                         mutableMethod.addInstructions(
+                                moveResultIdx + 1,
+                                """
+                                    if-nez v$resReg, :piko_flag_ok_$moveResultIdx
+                                    invoke-static {}, $prefClassType->pikoIsDefaultFollowingEnabled()Z
+                                    move-result v$resReg
+                                    :piko_flag_ok_$moveResultIdx
+                                """,
+                            )
                             patchedReads++
                         }
                     }
@@ -108,9 +123,7 @@ val defaultFollowingForYouPatch =
 
             // 2. Default every cold launch to FOLLOWING while letting the user switch to For You
             //    or Favorites during the session via the Instagram logo dropdown.
-            val prefClass = savedFeedPrefClassFingerprint.classDef
-            val prefClassType = prefClass.type
-
+         
             prefClass.fields.add(
                 ImmutableField(
                     prefClassType,
@@ -156,17 +169,25 @@ val defaultFollowingForYouPatch =
             getSavedFeedFingerprint.method.addInstructions(
                 0,
                 """
+            invoke-static {}, $prefClassType->pikoIsDefaultFollowingEnabled()Z
+            move-result v0
+            if-eqz v0, :piko_stock_get
                 invoke-static {}, $prefClassType->pikoGetSessionFeed()Ljava/lang/String;
                 move-result-object v0
                 return-object v0
+            :piko_stock_get
                 """.trimIndent(),
             )
 
             setSavedFeedFingerprint.method.addInstructions(
                 0,
                 """
+            invoke-static {}, $prefClassType->pikoIsDefaultFollowingEnabled()Z
+            move-result v0
+            if-eqz v0, :piko_stock_set
                 sput-object p1, $prefClassType->pikoSessionFeed:Ljava/lang/String;
                 return-void
+:piko_stock_set
                 """.trimIndent(),
             )
 
@@ -267,6 +288,9 @@ val defaultFollowingForYouPatch =
             labelMethod.addInstructions(
                 0,
                 """
+            invoke-static {}, $prefClassType->pikoIsDefaultFollowingEnabled()Z
+            move-result v0
+            if-eqz v0, :piko_show_name
                 invoke-static/range {p0 .. p0}, $TITLE_SWITCHER_CLASS->pikoKeepLogo(Landroid/view/View;)I
                 move-result v0
                 if-eqz v0, :piko_show_name
@@ -281,4 +305,16 @@ val defaultFollowingForYouPatch =
                 """.trimIndent(),
             )
         }
+
+    finalize {
+        resolvedPrefClassType?.let { owner ->
+            registerMyPatchesToggle(
+                "pikoAddDefaultFollowingToggle",
+                "Start Home on Following & For You",
+                "Open Home on Following and add For You to the logo dropdown (requires restart)",
+                owner,
+                "pikoGetDefaultFollowingSetting",
+            )
+        }
+    }
     }
