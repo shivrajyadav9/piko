@@ -392,8 +392,6 @@ const/4 v0, 0x0
 return v0
 """.trimIndent(),
 )
-            """.trimIndent(),
-        )
 
         val prefFieldResolutionBlock = if (prefFieldName != null && resolvedPrefGetter != null) {
             """
