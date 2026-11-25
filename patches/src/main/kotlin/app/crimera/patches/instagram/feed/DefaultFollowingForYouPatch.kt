@@ -166,8 +166,30 @@ val defaultFollowingForYouPatch =
                 0,
                 """
                 sput-object p1, $prefClassType->pikoSessionFeed:Ljava/lang/String;
+                return-void
                 """.trimIndent(),
             )
+
+        listOf(
+            "Lcom/instagram/mainactivity/InstagramMainActivity;",
+            "Lcom/instagram/mainactivity/MainActivity;",
+        ).forEach { activityType ->
+            classDefByOrNull(activityType)?.let { activityClass ->
+                mutableClassDefBy(activityClass).methods.firstOrNull {
+                    it.name == "onCreate" &&
+                        it.returnType == "V" &&
+                        it.parameterTypes.map(CharSequence::toString) == listOf("Landroid/os/Bundle;")
+                }?.addInstructions(
+                    0,
+                    """
+                    if-nez p1, :piko_keep_feed
+                    const/4 v0, 0x0
+                    sput-object v0, $prefClassType->pikoSessionFeed:Ljava/lang/String;
+                    :piko_keep_feed
+                    """.trimIndent(),
+                )
+            }
+        }
 
             // 3. Keep the Instagram logo in the Home header instead of replacing it with "Following"/"For You".
             val switcherClass = mutableClassDefBy(TITLE_SWITCHER_CLASS)
