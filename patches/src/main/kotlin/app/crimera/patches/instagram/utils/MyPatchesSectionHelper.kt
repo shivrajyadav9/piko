@@ -3,7 +3,7 @@ package app.crimera.patches.instagram.utils
 import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
 import app.morphe.patcher.extensions.InstructionExtensions.removeInstruction
 import app.morphe.patcher.patch.BytecodePatchContext
-import app.morphe.patcher.util.proxy.mutableTypes.MutableClassDef
+import app.morphe.patcher.util.proxy.mutableTypes.MutableClass
 import app.morphe.patcher.util.proxy.mutableTypes.MutableField.Companion.toMutable
 import app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.Companion.toMutable
 import com.android.tools.smali.dexlib2.AccessFlags
@@ -22,7 +22,7 @@ internal const val UTILS_CLASS = "Lapp/morphe/extension/shared/Utils;"
 private const val PIKO_FRAGMENT_MY_PATCHES = "piko_my_patches"
 
 internal fun addInstagramBooleanSettingHelpers(
-    targetClass: MutableClassDef,
+    targetClass: MutableClass,
     fieldName: String,
     getterName: String,
     enabledName: String,
@@ -134,7 +134,7 @@ internal fun BytecodePatchContext.registerMyPatchesToggle(
     settingGetterName: String,
 ) {
     val screenBuilderDef = classDefByOrNull(SCREEN_BUILDER_CLASS) ?: return
-    val screenBuilder = mutableClassDefBy(screenBuilderDef)
+    val screenBuilder = MutableClassBy(screenBuilderDef)
 
     if (screenBuilder.methods.none { it.name == "pikoBuildMyPatchesSection" }) {
         val helperField = screenBuilder.fields.firstOrNull { it.name == "helper" } ?: return
