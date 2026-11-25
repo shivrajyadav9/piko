@@ -7,6 +7,8 @@
 package app.crimera.patches.instagram.feed
 
 import app.crimera.patches.instagram.utils.Constants.COMPATIBILITY_INSTAGRAM
+import app.crimera.patches.instagram.utils.addInstagramBooleanSettingHelpers
+import app.crimera.patches.instagram.utils.registerMyPatchesToggle
 import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
 import app.morphe.patcher.extensions.InstructionExtensions.removeInstruction
 import app.morphe.patcher.patch.bytecodePatch
@@ -33,6 +35,8 @@ val hideForYouFollowButtonPatch =
         execute {
             val followClass = mutableClassDefBy(FOLLOW_BUTTON_BASE_CLASS)
             val superClass = followClass.superclass ?: "Landroid/widget/TextView;"
+
+        addInstagramBooleanSettingHelpers(followClass, "pikoHideFollowSetting", "pikoGetHideFollowSetting", "pikoIsHideFollowEnabled", "piko_hide_for_you_follow_button", defaultValue = true, restartRequired = false)
 
             followClass.fields.add(
                 ImmutableField(
@@ -140,6 +144,9 @@ val hideForYouFollowButtonPatch =
             filterVisHelper.addInstructions(
                 0,
                 """
+            invoke-static {}, Lcom/instagram/user/follow/FollowButtonBase;->pikoIsHideFollowEnabled()Z
+            move-result v0
+            if-eqz v0, :keep
                 if-nez p1, :keep
                 invoke-static {p0}, $FOLLOW_BUTTON_BASE_CLASS->pikoIsInFeedHeader(Landroid/view/View;)Z
                 move-result v0
@@ -271,5 +278,8 @@ val hideForYouFollowButtonPatch =
                 attachOverride.removeInstruction(attachOverride.implementation!!.instructions.size - 1)
                 followClass.methods.add(attachOverride)
             }
+        }
+        finalize {
+            registerMyPatchesToggle("pikoAddHideFollowToggle", "Hide Follow button on For You feed", "Hide Follow buttons on posts and Reels in the Home feed", "Lcom/instagram/user/follow/FollowButtonBase;", "pikoGetHideFollowSetting")
         }
     }
