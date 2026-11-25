@@ -186,7 +186,7 @@ internal fun BytecodePatchContext.registerMyPatchesToggle(
                 "pikoBuildMyPatchesSection",
                 emptyList(),
                 "V",
-                AccessFlags.PRIVATE.value,
+                AccessFlags.PUBLIC.value,
                 null,
                 null,
                 ImmutableMethodImplementation(
@@ -217,9 +217,10 @@ internal fun BytecodePatchContext.registerMyPatchesToggle(
             invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
             move-result v0
             if-eqz v0, :piko_not_my_patches
-            invoke-direct {p0}, $SCREEN_BUILDER_CLASS->pikoBuildMyPatchesSection()V
+            invoke-virtual {p0}, $SCREEN_BUILDER_CLASS->pikoBuildMyPatchesSection()V
             return-void
             :piko_not_my_patches
+nop
             """.trimIndent(),
         )
 
@@ -237,6 +238,7 @@ internal fun BytecodePatchContext.registerMyPatchesToggle(
                     if-eqz v0, :piko_keep_icon
                     const-string p0, "piko_frag_dev_options"
                     :piko_keep_icon
+nop
                     """.trimIndent(),
                 )
             }
@@ -263,6 +265,7 @@ internal fun BytecodePatchContext.registerMyPatchesToggle(
                         invoke-static {p0, v1}, ${startActivityRef.definingClass}->startPikoActivity(Ljava/lang/String;Ljava/lang/String;)V
                         return-void
                         :piko_other_frag
+nop
                         """.trimIndent(),
                     )
                 }
@@ -276,7 +279,7 @@ internal fun BytecodePatchContext.registerMyPatchesToggle(
                 helperMethodName,
                 emptyList(),
                 "V",
-                AccessFlags.PRIVATE.value,
+                AccessFlags.PUBLIC.value,
                 null,
                 null,
                 ImmutableMethodImplementation(
@@ -308,7 +311,7 @@ internal fun BytecodePatchContext.registerMyPatchesToggle(
             sectionMethod.addInstructions(
                 lastReturnIdx,
                 """
-                invoke-direct {p0}, $SCREEN_BUILDER_CLASS->$helperMethodName()V
+                invoke-virtual {p0}, $SCREEN_BUILDER_CLASS->$helperMethodName()V
                 """.trimIndent(),
             )
         }
