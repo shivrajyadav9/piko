@@ -333,56 +333,59 @@ val drawerPikoSettingsIconPatch = bytecodePatch(
         enabledMethod.removeInstruction(enabledMethod.implementation!!.instructions.size - 1)
         drawerClass.methods.add(enabledMethod)
 
-        val registerSettingsMethod = MutableMethod(
-            ImmutableMethod(
-                "Lcom/x/main/drawer/a;",
-                "pikoRegisterDrawerPikoIconSettings",
-                emptyList(),
-                "V",
-                AccessFlags.PUBLIC.value or AccessFlags.STATIC.value,
-                null,
-                null,
-                ImmutableMethodImplementation(
-                    5,
-                    listOf(ImmutableInstruction10x(Opcode.RETURN_VOID)),
-                    null,
-                    null,
-                ),
-            ),
-        )
-        registerSettingsMethod.addInstructions(
-            0,
-            """
-                const-string v0, "newx.my_patches"
-                const-string v1, "piko_my_patches_category_title"
-                const-string v2, "piko_my_patches_category_summary"
-                const-string v3, "ic_vector_wrench"
-                const/16 v4, 0x3c
-                invoke-static {v0, v1, v2, v3, v4}, $SETTINGS_REGISTRY->registerCategory(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V
-                const-string v0, "newx.my_patches"
-                const-string v1, "newx.my_patches.drawer_piko_icon"
-                const-string v2, "piko_my_patches_drawer_piko_icon_title"
-                const-string v3, "piko_my_patches_drawer_piko_icon_summary"
-                const/16 v4, 0x46
-                invoke-static {v0, v1, v2, v3, v4}, $SETTINGS_REGISTRY->registerToggle(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V
-                const-string v0, "newx.my_patches.drawer_piko_icon"
-                const/4 v1, 0x1
-                const/4 v2, 0x1
-                invoke-static {v0, v1, v2}, $SETTINGS_REGISTRY->configureToggle(Ljava/lang/String;ZZ)V
-                return-void
-            """,
-        )
-        registerSettingsMethod.removeInstruction(registerSettingsMethod.implementation!!.instructions.size - 1)
-        drawerClass.methods.add(registerSettingsMethod)
     }
 
     finalize {
         classDefByOrNull(BUILT_IN_SETTINGS)?.let { builtInDef ->
-            mutableClassDefBy(builtInDef).methods
+            val mutableBuiltIn = mutableClassDefBy(builtInDef)
+            if (mutableBuiltIn.methods.none { it.name == "pikoRegisterDrawerPikoIconSettings" }) {
+                val registerSettingsMethod = MutableMethod(
+                    ImmutableMethod(
+                        BUILT_IN_SETTINGS,
+                        "pikoRegisterDrawerPikoIconSettings",
+                        emptyList(),
+                        "V",
+                        AccessFlags.PUBLIC.value or AccessFlags.STATIC.value,
+                        null,
+                        null,
+                        ImmutableMethodImplementation(
+                            5,
+                            listOf(ImmutableInstruction10x(Opcode.RETURN_VOID)),
+                            null,
+                            null,
+                        ),
+                    ),
+                )
+                registerSettingsMethod.addInstructions(
+                    0,
+                    """
+                    const-string v0, "newx.my_patches"
+                    const-string v1, "piko_my_patches_category_title"
+                    const-string v2, "piko_my_patches_category_summary"
+                    const-string v3, "ic_vector_wrench"
+                    const/16 v4, 0x3c
+                    invoke-static {v0, v1, v2, v3, v4}, $SETTINGS_REGISTRY->registerCategory(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V
+                    const-string v0, "newx.my_patches"
+                    const-string v1, "newx.my_patches.drawer_piko_icon"
+                    const-string v2, "piko_my_patches_drawer_piko_icon_title"
+                    const-string v3, "piko_my_patches_drawer_piko_icon_summary"
+                    const/16 v4, 0x46
+                    invoke-static {v0, v1, v2, v3, v4}, $SETTINGS_REGISTRY->registerToggle(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V
+                    const-string v0, "newx.my_patches.drawer_piko_icon"
+                    const/4 v1, 0x1
+                    const/4 v2, 0x1
+                    invoke-static {v0, v1, v2}, $SETTINGS_REGISTRY->configureToggle(Ljava/lang/String;ZZ)V
+                    return-void
+                    """.trimIndent(),
+                )
+                registerSettingsMethod.removeInstruction(registerSettingsMethod.implementation!!.instructions.size - 1)
+                mutableBuiltIn.methods.add(registerSettingsMethod)
+            }
+            mutableBuiltIn.methods
                 .firstOrNull { it.name == "register" && it.parameters.isEmpty() }
                 ?.addInstructions(
                     0,
-                    "invoke-static {}, Lcom/x/main/drawer/a;->pikoRegisterDrawerPikoIconSettings()V",
+                    "invoke-static {}, $BUILT_IN_SETTINGS->pikoRegisterDrawerPikoIconSettings()V",
                 )
         }
     }
