@@ -93,7 +93,7 @@ hostClass.staticFields.add(
         "pikoHomeGearRegistered",
         "Z",
         AccessFlags.PRIVATE.value or AccessFlags.STATIC.value,
-        null,
+        null, null, null,
     ).toMutable(),
 )
 
