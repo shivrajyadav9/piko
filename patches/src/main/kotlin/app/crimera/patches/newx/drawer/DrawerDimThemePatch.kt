@@ -4,6 +4,7 @@ import app.crimera.patches.newx.utils.Constants.COMPATIBILITY_NEW_X
 import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
 import app.morphe.patcher.extensions.InstructionExtensions.removeInstruction
 import app.morphe.patcher.patch.bytecodePatch
+import app.morphe.patcher.patch.resourcePatch
 import app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.Companion.toMutable
 import com.android.tools.smali.dexlib2.AccessFlags
 import com.android.tools.smali.dexlib2.Opcode
@@ -13,6 +14,7 @@ import com.android.tools.smali.dexlib2.iface.reference.MethodReference
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodParameter
 import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction10x
+import org.w3c.dom.Element
 
 private const val THEME_UI_CLASS = "Lcom/x/android/theme/impl/ui/a;"
 private const val DARK_MODE_ENUM = "Lcom/x/android/theme/api/f;"
@@ -21,6 +23,33 @@ private const val CLICK_LAMBDA_CLASS = "Lcom/x/aitrend/o;"
 private const val SETTINGS_REGISTRY = "Lapp/morphe/extension/crimera/settings/SettingsRegistry;"
 private const val SETTING_CLASS = "Lapp/morphe/extension/shared/settings/Setting;"
 private const val UTILS_CLASS = "Lapp/morphe/extension/shared/Utils;"
+private const val BUILT_IN_SETTINGS = "Lapp/morphe/extension/newx/settings/BuiltInSettings;"
+
+private val drawerDimThemeResourcesPatch = resourcePatch {
+    execute {
+        document("res/values/strings.xml").use { doc ->
+            val resources = doc.documentElement
+            fun addStringIfMissing(name: String, value: String) {
+                val existing = resources.getElementsByTagName("string")
+                for (i in 0 until existing.length) {
+                    if ((existing.item(i) as? Element)?.getAttribute("name") == name) return
+                }
+                val el = doc.createElement("string")
+                el.setAttribute("name", name)
+                el.textContent = value
+                resources.appendChild(el)
+            }
+
+            addStringIfMissing("piko_my_patches_category_title", "My Patches")
+            addStringIfMissing("piko_my_patches_category_summary", "Custom patches")
+            addStringIfMissing("piko_my_patches_drawer_dim_theme_title", "Drawer Dim theme")
+            addStringIfMissing(
+                "piko_my_patches_drawer_dim_theme_summary",
+                "Show Dim theme option in the side drawer Dark mode sheet",
+            )
+        }
+    }
+}
 
 @Suppress("unused")
 val drawerDimThemePatch = bytecodePatch(
@@ -28,6 +57,7 @@ val drawerDimThemePatch = bytecodePatch(
     description = "Adds Crimera's Dim theme option to the Dark mode sheet opened from the side drawer moon button.",
 ) {
     compatibleWith(COMPATIBILITY_NEW_X)
+    dependsOn(drawerDimThemeResourcesPatch)
 
     execute {
         val themeUiClassDef = classDefByOrNull(THEME_UI_CLASS) ?: return@execute
@@ -58,6 +88,46 @@ val drawerDimThemePatch = bytecodePatch(
         }
 
         addStaticHelper(
+            name = "pikoRegisterDrawerDimSettings",
+            params = emptyList(),
+            returnType = "V",
+            registerCount = 5,
+            smali = """
+                const-string v0, "newx.my_patches"
+                const-string v1, "piko_my_patches_category_title"
+                const-string v2, "piko_my_patches_category_summary"
+                const-string v3, "ic_vector_wrench"
+                const/16 v4, 0x3c
+                invoke-static {v0, v1, v2, v3, v4}, $SETTINGS_REGISTRY->registerCategory(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V
+                const-string v0, "newx.my_patches"
+                const-string v1, "newx.my_patches.drawer_dim_theme"
+                const-string v2, "piko_my_patches_drawer_dim_theme_title"
+                const-string v3, "piko_my_patches_drawer_dim_theme_summary"
+                const/16 v4, 0x3c
+                invoke-static {v0, v1, v2, v3, v4}, $SETTINGS_REGISTRY->registerToggle(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V
+                const-string v0, "newx.my_patches.drawer_dim_theme"
+                const/4 v1, 0x1
+                const/4 v2, 0x0
+                invoke-static {v0, v1, v2}, $SETTINGS_REGISTRY->configureToggle(Ljava/lang/String;ZZ)V
+                return-void
+            """.trimIndent(),
+        )
+
+        addStaticHelper(
+            name = "pikoIsDrawerDimEnabled",
+            params = emptyList(),
+            returnType = "Z",
+            registerCount = 2,
+            smali = """
+                const-string v0, "newx.my_patches.drawer_dim_theme"
+                const/4 v1, 0x1
+                invoke-static {v0, v1}, $SETTINGS_REGISTRY->getBooleanOrDefault(Ljava/lang/String;Z)Z
+                move-result v0
+                return v0
+            """.trimIndent(),
+        )
+
+        addStaticHelper(
             name = "pikoIsDimTheme",
             params = emptyList(),
             returnType = "Z",
@@ -80,6 +150,11 @@ val drawerDimThemePatch = bytecodePatch(
             returnType = "Z",
             registerCount = 2,
             smali = """
+                invoke-static {}, $THEME_UI_CLASS->pikoIsDrawerDimEnabled()Z
+                move-result v0
+                if-nez v0, :piko_lights_out_enabled
+                return p0
+                :piko_lights_out_enabled
                 if-eqz p0, :ret_false
                 invoke-static {}, $THEME_UI_CLASS->pikoIsDimTheme()Z
                 move-result v0
@@ -128,6 +203,11 @@ val drawerDimThemePatch = bytecodePatch(
             returnType = "V",
             registerCount = 13,
             smali = """
+                invoke-static {}, $THEME_UI_CLASS->pikoIsDrawerDimEnabled()Z
+                move-result v0
+                if-nez v0, :piko_dim_row_enabled
+                return-void
+                :piko_dim_row_enabled
                 const-string v0, "Dim"
                 const/4 v1, 0x0
                 const/4 v2, 0x0
@@ -255,6 +335,14 @@ val drawerDimThemePatch = bytecodePatch(
                 setter.removeInstruction(setter.implementation!!.instructions.size - 1)
                 mutableReg.methods.add(setter)
             }
+        }
+        classDefByOrNull(BUILT_IN_SETTINGS)?.let { builtInDef ->
+            mutableClassDefBy(builtInDef).methods
+                .firstOrNull { it.name == "register" && it.parameters.isEmpty() }
+                ?.addInstructions(
+                    0,
+                    "invoke-static {}, $THEME_UI_CLASS->pikoRegisterDrawerDimSettings()V",
+                )
         }
     }
 }
