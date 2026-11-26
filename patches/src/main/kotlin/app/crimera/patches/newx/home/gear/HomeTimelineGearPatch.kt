@@ -257,7 +257,7 @@ registerAll.addInstructions(
 """
 invoke-static {}, $BUILT_IN_SETTINGS->pikoRegisterHomeGearSettings()V
 """.trimIndent(),
-))
+)
     }
 }
 
