@@ -6,11 +6,13 @@ import app.morphe.patcher.extensions.InstructionExtensions.removeInstruction
 import app.morphe.patcher.patch.bytecodePatch
 import app.morphe.patcher.patch.resourcePatch
 import app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.Companion.toMutable
+import app.morphe.patcher.util.proxy.mutableTypes.MutableField.Companion.toMutable
 import com.android.tools.smali.dexlib2.AccessFlags
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.builder.MutableMethodImplementation
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
 import com.android.tools.smali.dexlib2.iface.reference.MethodReference
+import com.android.tools.smali.dexlib2.immutable.ImmutableField
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodParameter
 import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction10x
@@ -28,12 +30,14 @@ private const val BUILT_IN_SETTINGS = "Lapp/morphe/extension/newx/settings/Built
 private val drawerDimThemeResourcesPatch = resourcePatch {
     execute {
         document("res/values/strings.xml").use { doc ->
-            val resources = doc.documentElement
+            val resources = doc.getElementsByTagName("resources").item(0)
+            val existingNames = mutableSetOf<String>()
+            val existing = doc.getElementsByTagName("string")
+            for (i in 0 until existing.length) {
+                (existing.item(i) as? Element)?.getAttribute("name")?.let { existingNames.add(it) }
+            }
             fun addStringIfMissing(name: String, value: String) {
-                val existing = resources.getElementsByTagName("string")
-                for (i in 0 until existing.length) {
-                    if ((existing.item(i) as? Element)?.getAttribute("name") == name) return
-                }
+                if (!existingNames.add(name)) return
                 val el = doc.createElement("string")
                 el.setAttribute("name", name)
                 el.textContent = value
@@ -313,6 +317,19 @@ val drawerDimThemePatch = bytecodePatch(
         }
         classDefByOrNull(BUILT_IN_SETTINGS)?.let { builtInDef ->
                  val mutableBuiltIn = mutableClassDefBy(builtInDef)
+                if (mutableBuiltIn.fields.none { it.name == "pikoDrawerDimRegistered" }) {
+                    mutableBuiltIn.staticFields.add(
+                        ImmutableField(
+                            BUILT_IN_SETTINGS,
+                            "pikoDrawerDimRegistered",
+                            "Z",
+                            AccessFlags.PRIVATE.value or AccessFlags.STATIC.value,
+                            null,
+                            null,
+                            null,
+                        ).toMutable(),
+                    )
+                }
             if (mutableBuiltIn.methods.none { it.name == "pikoRegisterDrawerDimSettings" }) {
                 val impl = MutableMethodImplementation(5)
                 impl.addInstruction(BuilderInstruction10x(Opcode.RETURN_VOID))
@@ -329,11 +346,18 @@ val drawerDimThemePatch = bytecodePatch(
                 helper.addInstructions(
                     0,
                     """
+                        sget-boolean v0, $BUILT_IN_SETTINGS->pikoDrawerDimRegistered:Z
+                        if-eqz v0, :do_register
+                        return-void
+                        :do_register
+                        const/4 v0, 0x1
+                        sput-boolean v0, $BUILT_IN_SETTINGS->pikoDrawerDimRegistered:Z
+                        
                     const-string v0, "newx.my_patches"
                     const-string v1, "piko_my_patches_category_title"
                     const-string v2, "piko_my_patches_category_summary"
                     const-string v3, "ic_vector_wrench"
-                    const/16 v4, 0x3c
+                    const/16 v4, 0x32
                     invoke-static {v0, v1, v2, v3, v4}, $SETTINGS_REGISTRY->registerCategory(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V
                     const-string v0, "newx.my_patches"
                     const-string v1, "newx.my_patches.drawer_dim_theme"
