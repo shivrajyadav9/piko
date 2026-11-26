@@ -88,15 +88,7 @@ val homeTimelineGearPatch = bytecodePatch(
 
     execute {
 val hostClass = homeTabbedStateConstructorFingerprint.classDef
-hostClass.staticFields.add(
-    ImmutableField(
-        HOST_CLASS,
-        "pikoHomeGearRegistered",
-        "Z",
-        AccessFlags.PRIVATE.value or AccessFlags.STATIC.value,
-        null, null, null,
-    ).toMutable(),
-)
+
 
 val enabledMethod = ImmutableMethod(
     HOST_CLASS,
@@ -120,48 +112,7 @@ val enabledMethod = ImmutableMethod(
     )
 }
 hostClass.methods.add(enabledMethod)
-
-val registerMethod = ImmutableMethod(
-    HOST_CLASS,
-    "pikoRegisterHomeGearSettings",
-    emptyList(),
-    "V",
-    AccessFlags.PUBLIC.value or AccessFlags.STATIC.value,
-    null,
-    null,
-    MutableMethodImplementation(5),
-).toMutable().apply {
-    addInstructions(
-        0,
-        """
-            sget-boolean v0, $HOST_CLASS->pikoHomeGearRegistered:Z
-            if-eqz v0, :do_register
-            return-void
-            :do_register
-            const/4 v0, 0x1
-            sput-boolean v0, $HOST_CLASS->pikoHomeGearRegistered:Z
-            const-string v0, "newx.my_patches"
-            const-string v1, "piko_my_patches_category_title"
-            const-string v2, "piko_my_patches_category_summary"
-       const-string v3, "ic_vector_wrench"
-const/16 v4, 0x3c
-invoke-static {v0, v1, v2, v3, v4}, $SETTINGS_REGISTRY->registerCategory(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V
-const-string v0, "newx.my_patches"
-const-string v1, "newx.my_patches.home_timeline_gear"
-const-string v2, "piko_my_patches_home_timeline_gear_title"
-const-string v3, "piko_my_patches_home_timeline_gear_summary"
-const/16 v4, 0x50
-invoke-static {v0, v1, v2, v3, v4}, $SETTINGS_REGISTRY->registerToggle(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V
-const-string v0, "newx.my_patches.home_timeline_gear"
-const/4 v1, 0x1
-const/4 v2, 0x1
-invoke-static {v0, v1, v2}, $SETTINGS_REGISTRY->configureToggle(Ljava/lang/String;ZZ)V
-return-void
-        """.trimIndent(),
-    )
-}
-hostClass.methods.add(registerMethod)
-       
+   
 val filterNavStateMethod = ImmutableMethod(
     HOST_CLASS,
     "pikoFilterNavState",
@@ -264,15 +215,49 @@ move-result-object p3
     }
 
     finalize {
-        val registerAll = mutableClassDefBy(BUILT_IN_SETTINGS)
-            .methods
-            .first { it.name == "register" }
-        registerAll.addInstructions(
-            0,
-            """
-                invoke-static {}, $HOST_CLASS->pikoRegisterHomeGearSettings()V
-            """.trimIndent(),
-        )
+        val builtInDef = classDefByOrNull(BUILT_IN_SETTINGS) ?: return@finalize
+val mutableBuiltIn = mutableClassDefBy(builtInDef)
+val registerSettingsMethod = ImmutableMethod(
+BUILT_IN_SETTINGS,
+"pikoRegisterHomeGearSettings",
+emptyList(),
+"V",
+AccessFlags.PUBLIC.value or AccessFlags.STATIC.value,
+null,
+null,
+MutableMethodImplementation(5),
+).toMutable().apply {
+addInstructions(
+0,
+"""
+const-string v0, "newx.my_patches"
+const-string v1, "piko_my_patches_category_title"
+const-string v2, "piko_my_patches_category_summary"
+const-string v3, "ic_vector_wrench"
+const/16 v4, 0x3c
+invoke-static {v0, v1, v2, v3, v4}, $SETTINGS_REGISTRY->registerCategory(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V
+const-string v0, "newx.my_patches"
+const-string v1, "newx.my_patches.home_timeline_gear"
+const-string v2, "piko_my_patches_home_timeline_gear_title"
+const-string v3, "piko_my_patches_home_timeline_gear_summary"
+const/16 v4, 0x50
+invoke-static {v0, v1, v2, v3, v4}, $SETTINGS_REGISTRY->registerToggle(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V
+const-string v0, "newx.my_patches.home_timeline_gear"
+const/4 v1, 0x1
+const/4 v2, 0x1
+invoke-static {v0, v1, v2}, $SETTINGS_REGISTRY->configureToggle(Ljava/lang/String;ZZ)V
+return-void
+""".trimIndent(),
+)
+}
+mutableBuiltIn.methods.add(registerSettingsMethod)
+val registerAll = mutableBuiltIn.methods.first { it.name == "register" }
+registerAll.addInstructions(
+0,
+"""
+invoke-static {}, $BUILT_IN_SETTINGS->pikoRegisterHomeGearSettings()V
+""".trimIndent(),
+))
     }
 }
 
