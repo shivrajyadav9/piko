@@ -235,7 +235,7 @@ nop
                                         :piko_skip_$tag
                                         nop
                                         
-""".""".trimIndent(),
+                                "".trimIndent(),
                      )
                      }
                      } }
