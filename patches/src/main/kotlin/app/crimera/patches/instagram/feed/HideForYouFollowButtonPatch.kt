@@ -329,7 +329,7 @@ invoke-virtual {p0}, Landroid/view/View;->requestLayout()V
 
             var cur = classDefByOrNull(FOLLOW_BUTTON_BASE_CLASS)
             while (cur != null) {
-                val existingMeasure = cur.methods.firstOrNull {
+                val existingMeasure = mutableClassDefBy(cur).methods.firstOrNull {
 !AccessFlags.STATIC.isSet(it.accessFlags) &&
     it.name == "onMeasure" &&
 it.returnType == "V" &&
