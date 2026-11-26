@@ -326,71 +326,40 @@ invoke-virtual {p0}, Landroid/view/View;->requestLayout()V
                 attachOverride.removeInstruction(attachOverride.implementation!!.instructions.size - 1)
                 followClass.methods.add(attachOverride)
             }
-val existingMeasure = followClass.methods.firstOrNull {
-    !AccessFlags.STATIC.isSet(it.accessFlags) &&
-        it.name == "onMeasure" &&
-        it.returnType == "V" &&
-        it.parameterTypes.size == 2 &&
-        it.parameterTypes[0] == "I" &&
-        it.parameterTypes[1] == "I"
-}
-if (existingMeasure != null) {
-    existingMeasure.addInstructions(
-        0,
-        """
-        invoke-static {}, $FOLLOW_BUTTON_BASE_CLASS->pikoIsHideFollowEnabled()Z
-        move-result v0
-        if-eqz v0, :piko_measure_orig
-        invoke-static {p0}, $FOLLOW_BUTTON_BASE_CLASS->pikoIsInFeedHeader(Landroid/view/View;)Z
-        move-result v0
-        if-eqz v0, :piko_measure_orig
-        const/4 v0, 0x0
-        invoke-virtual {p0, v0, v0}, $FOLLOW_BUTTON_BASE_CLASS->setMeasuredDimension(II)V
-        return-void
-        :piko_measure_orig
-        nop
-        """.trimIndent(),
-    )
-} else {
-    val measureOverride =
-        ImmutableMethod(
-            FOLLOW_BUTTON_BASE_CLASS,
-            "onMeasure",
-            listOf(
-                ImmutableMethodParameter("I", null, "widthMeasureSpec"),
-                ImmutableMethodParameter("I", null, "heightMeasureSpec"),
-            ),
-            "V",
-            AccessFlags.PROTECTED.value,
-            null,
-            null,
-            ImmutableMethodImplementation(
-                4,
-                listOf(ImmutableInstruction10x(Opcode.RETURN_VOID)),
-                null,
-                null,
-            ),
-        ).toMutable()
-    measureOverride.addInstructions(
-        0,
-        """
-        invoke-static {}, $FOLLOW_BUTTON_BASE_CLASS->pikoIsHideFollowEnabled()Z
-        move-result v0
-        if-eqz v0, :piko_measure_orig
-        invoke-static {p0}, $FOLLOW_BUTTON_BASE_CLASS->pikoIsInFeedHeader(Landroid/view/View;)Z
-        move-result v0
-        if-eqz v0, :piko_measure_orig
-        const/4 v0, 0x0
-        invoke-virtual {p0, v0, v0}, $FOLLOW_BUTTON_BASE_CLASS->setMeasuredDimension(II)V
-        return-void
-        :piko_measure_orig
-        invoke-super {p0, p1, p2}, $superClass->onMeasure(II)V
-        return-void
-        """.trimIndent(),
-    )
-    measureOverride.removeInstruction(measureOverride.implementation!!.instructions.size - 1)
-    followClass.methods.add(measureOverride)
-}
+
+            var cur = classDefByOrNull(FOLLOW_BUTTON_BASE_CLASS)
+            while (cur != null) {
+                val existingMeasure = cur.methods.firstOrNull {
+!AccessFlags.STATIC.isSet(it.accessFlags) &&
+    it.name == "onMeasure" &&
+it.returnType == "V" &&
+it.parameterTypes.size == 2 &&
+it.parameterTypes[0] == "I" &&
+it.parameterTypes[1] == "I"
+                }
+                if (existingMeasure != null) {
+                    existingMeasure.addInstructions(
+                        0,
+                        """
+                        instance-of v0, p0, Lcom/instagram/user/follow/FollowButtonBase;
+                        if-eqz v0, :piko_measure_orig
+                        invoke-static {}, Lcom/instagram/user/follow/FollowButtonBase;->pikoIsHideFollowEnabled()Z
+                        move-result v0
+                        if-eqz v0, :piko_measure_orig
+                        invoke-static/range {p0 .. p0}, Lcom/instagram/user/follow/FollowButtonBase;->pikoIsInFeedHeader(Landroid/view/View;)Z
+                        move-result v0
+                        if-eqz v0, :piko_measure_orig
+                        const/4 v0, 0x0
+                        invoke-virtual {p0, v0, v0}, ${cur.type}->setMeasuredDimension(II)V
+                        return-void
+                        :piko_measure_orig
+                        nop
+                        """.trimIndent(),
+                    )
+                    break
+                }
+                cur = cur.superclass?.let { classDefByOrNull(it) }
+            }                
         }
         finalize {
             registerMyPatchesToggle("pikoAddHideFollowToggle", "Hide Follow button on For You feed", "Hide Follow buttons on posts and Reels in the Home feed", "Lcom/instagram/user/follow/FollowButtonBase;", "pikoGetHideFollowSetting")
