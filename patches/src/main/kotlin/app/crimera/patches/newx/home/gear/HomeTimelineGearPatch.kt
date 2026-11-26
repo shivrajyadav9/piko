@@ -29,12 +29,15 @@ private const val BUILT_IN_SETTINGS = "Lapp/morphe/extension/newx/settings/Built
 private val homeTimelineGearResourcesPatch = resourcePatch {
 execute {
 document("res/values/strings.xml").use { doc ->
-val resources = doc.documentElement
-fun addStringIfMissing(name: String, value: String) {
-val existing = resources.getElementsByTagName("string")
-for (i in 0 until existing.length) {
-if ((existing.item(i) as? Element)?.getAttribute("name") == name) return
+val resources = doc.getElementsByTagName("resources").item(0)
+val existingNodes = doc.getElementsByTagName("string")
+val existingNames = HashSet<String>(existingNodes.length)
+for (i in 0 until existingNodes.length) {
+val el = existingNodes.item(i) as? Element ?: continue
+existingNames.add(el.getAttribute("name"))
 }
+fun addStringIfMissing(name: String, value: String) {
+if (!existingNames.add(name)) return
 val el = doc.createElement("string")
 el.setAttribute("name", name)
 el.textContent = value
@@ -306,6 +309,17 @@ move-result-object v$clickReg
     finalize {
         val builtInDef = classDefByOrNull(BUILT_IN_SETTINGS) ?: return@finalize
 val mutableBuiltIn = mutableClassDefBy(builtInDef)
+mutableBuiltIn.staticFields.add(
+ImmutableField(
+BUILT_IN_SETTINGS,
+"pikoHomeGearRegistered",
+"Z",
+AccessFlags.PRIVATE.value or AccessFlags.STATIC.value,
+null,
+null,
+null,
+).toMutable(),
+)
 val registerSettingsMethod = ImmutableMethod(
 BUILT_IN_SETTINGS,
 "pikoRegisterHomeGearSettings",
@@ -319,11 +333,17 @@ ImmutableMethodImplementation(5, listOf(ImmutableInstruction10x(Opcode.RETURN_VO
 addInstructions(
 0,
 """
+sget-boolean v0, $BUILT_IN_SETTINGS->pikoHomeGearRegistered:Z
+if-eqz v0, :not_registered
+return-void
+:not_registered
+const/4 v0, 0x1
+sput-boolean v0, $BUILT_IN_SETTINGS->pikoHomeGearRegistered:Z
 const-string v0, "newx.my_patches"
 const-string v1, "piko_my_patches_category_title"
 const-string v2, "piko_my_patches_category_summary"
 const-string v3, "ic_vector_wrench"
-const/16 v4, 0x3c
+const/16 v4, 0x32
 invoke-static {v0, v1, v2, v3, v4}, $SETTINGS_REGISTRY->registerCategory(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V
 const-string v0, "newx.my_patches"
 const-string v1, "newx.my_patches.home_timeline_gear"
