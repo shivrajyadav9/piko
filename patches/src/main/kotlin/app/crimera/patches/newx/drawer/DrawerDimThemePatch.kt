@@ -87,32 +87,7 @@ val drawerDimThemePatch = bytecodePatch(
             mutableThemeUi.methods.add(helper)
         }
 
-        addStaticHelper(
-            name = "pikoRegisterDrawerDimSettings",
-            params = emptyList(),
-            returnType = "V",
-            registerCount = 5,
-            smali = """
-                const-string v0, "newx.my_patches"
-                const-string v1, "piko_my_patches_category_title"
-                const-string v2, "piko_my_patches_category_summary"
-                const-string v3, "ic_vector_wrench"
-                const/16 v4, 0x3c
-                invoke-static {v0, v1, v2, v3, v4}, $SETTINGS_REGISTRY->registerCategory(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V
-                const-string v0, "newx.my_patches"
-                const-string v1, "newx.my_patches.drawer_dim_theme"
-                const-string v2, "piko_my_patches_drawer_dim_theme_title"
-                const-string v3, "piko_my_patches_drawer_dim_theme_summary"
-                const/16 v4, 0x3c
-                invoke-static {v0, v1, v2, v3, v4}, $SETTINGS_REGISTRY->registerToggle(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V
-                const-string v0, "newx.my_patches.drawer_dim_theme"
-                const/4 v1, 0x1
-                const/4 v2, 0x0
-                invoke-static {v0, v1, v2}, $SETTINGS_REGISTRY->configureToggle(Ljava/lang/String;ZZ)V
-                return-void
-            """.trimIndent(),
-        )
-
+    
         addStaticHelper(
             name = "pikoIsDrawerDimEnabled",
             params = emptyList(),
@@ -337,11 +312,50 @@ val drawerDimThemePatch = bytecodePatch(
             }
         }
         classDefByOrNull(BUILT_IN_SETTINGS)?.let { builtInDef ->
-            mutableClassDefBy(builtInDef).methods
+                 val mutableBuiltIn = mutableClassDefBy(builtInDef)
+            if (mutableBuiltIn.methods.none { it.name == "pikoRegisterDrawerDimSettings" }) {
+                val impl = MutableMethodImplementation(5)
+                impl.addInstruction(BuilderInstruction10x(Opcode.RETURN_VOID))
+                val helper = ImmutableMethod(
+                    BUILT_IN_SETTINGS,
+                    "pikoRegisterDrawerDimSettings",
+                    emptyList(),
+                    "V",
+                    AccessFlags.PUBLIC.value or AccessFlags.STATIC.value,
+                    null,
+                    null,
+                    impl,
+                ).toMutable()
+                helper.addInstructions(
+                    0,
+                    """
+                    const-string v0, "newx.my_patches"
+                    const-string v1, "piko_my_patches_category_title"
+                    const-string v2, "piko_my_patches_category_summary"
+                    const-string v3, "ic_vector_wrench"
+                    const/16 v4, 0x3c
+                    invoke-static {v0, v1, v2, v3, v4}, $SETTINGS_REGISTRY->registerCategory(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V
+                    const-string v0, "newx.my_patches"
+                    const-string v1, "newx.my_patches.drawer_dim_theme"
+                    const-string v2, "piko_my_patches_drawer_dim_theme_title"
+                    const-string v3, "piko_my_patches_drawer_dim_theme_summary"
+                    const/16 v4, 0x3c
+                    invoke-static {v0, v1, v2, v3, v4}, $SETTINGS_REGISTRY->registerToggle(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V
+                    const-string v0, "newx.my_patches.drawer_dim_theme"
+                    const/4 v1, 0x1
+                    const/4 v2, 0x0
+                    invoke-static {v0, v1, v2}, $SETTINGS_REGISTRY->configureToggle(Ljava/lang/String;ZZ)V
+                    return-void
+                    """.trimIndent(),
+                )
+                helper.removeInstruction(helper.implementation!!.instructions.size - 1)
+                mutableBuiltIn.methods.add(helper)
+            }
+            mutableBuiltIn.methods
                 .firstOrNull { it.name == "register" && it.parameters.isEmpty() }
                 ?.addInstructions(
                     0,
-                    "invoke-static {}, $THEME_UI_CLASS->pikoRegisterDrawerDimSettings()V",
+                    "invoke-static {}, $BUILT_IN_SETTINGS->pikoRegisterDrawerDimSettings()V",
                 )
         }
     }
