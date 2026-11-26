@@ -184,7 +184,8 @@ prefClass.methods.add(orDefaultFollowingHelper)
             invoke-static {}, $prefClassType->pikoIsDefaultFollowingEnabled()Z
             move-result v0
             if-eqz v0, :piko_stock_get
-                const-string v0, "FOLLOWING"
+                invoke-static {}, $prefClassType->pikoGetSessionFeed()Ljava/lang/String;
+                move-result-object v0
                 return-object v0
             :piko_stock_get
 nop
@@ -197,42 +198,49 @@ nop
             invoke-static {}, $prefClassType->pikoIsDefaultFollowingEnabled()Z
             move-result v0
             if-eqz v0, :piko_stock_set
-                return-void
+               sput-object p1, $prefClassType->pikoSessionFeed:Ljava/lang/String;
+               return-void
 :piko_stock_set
 nop
                 """.trimIndent(),
             )
 
-        listOf(
-            "Lcom/instagram/mainactivity/InstagramMainActivity;",
-            "Lcom/instagram/mainactivity/MainActivity;",
-        ).forEach { activityType ->
-            classDefByOrNull(activityType)?.let { activityClass ->
-                mutableClassDefBy(activityClass).methods.firstOrNull {
-                    it.name == "onCreate" &&
-                        it.returnType == "V" &&
-                        it.parameterTypes.map(CharSequence::toString) == listOf("Landroid/os/Bundle;")
-                }?.addInstructions(
-                    0,
-                    """
-                    const/4 v0, 0x0
-                    sput-object v0, $prefClassType->pikoSessionFeed:Ljava/lang/String;
-                    """.trimIndent(),
-                )
-                mutableClassDefBy(activityClass).methods.firstOrNull {
-                    it.name == "onDestroy" &&
-                        it.returnType == "V" &&
-                        it.parameterTypes.isEmpty()
-                }?.addInstructions(
-                    0,
-                    """
-                    const/4 v0, 0x0
-                    sput-object v0, $prefClassType->pikoSessionFeed:Ljava/lang/String;
-                    """.trimIndent(),
-                )
-            }
-        }
-
+       val hookedResetMethods = mutableSetOf<String>()
+       listOf("Lcom/instagram/mainactivity/InstagramMainActivity;", "Lcom/instagram/mainactivity/MainActivity;").forEach { activityType ->
+           val found = mutableSetOf<String>()
+           var cur = classDefByOrNull(activityType)
+           while (cur != null && found.size < 3) {
+              
+               val cls = cur
+                               val mutCur = mutableClassDefBy(cls)
+                        listOf(
+                            Triple("onCreate", listOf("Landroid/os/Bundle;"), "oncreate"),
+                            Triple("onDestroy", emptyList(), "ondestroy"),
+                            Triple("finish", emptyList(), "finish"),
+                            
+                        ).forEach { (methodName, params, tag) ->
+                            if (found.contains(methodName)) return@forEach
+                            mutCur.methods.firstOrNull {
+                                it.implementation != null && it.name == methodName && it.returnType == "V" && it.parameterTypes.map(CharSequence::toString) == params
+                                }?.let { method ->
+                                found.add(methodName)
+                                if (hookedResetMethods.add("${cls.type}->$methodName")) {
+                                    method.addInstructions(
+                                        0,
+                                        """
+                                        instance-of v0, p0, Lcom/instagram/mainactivity/InstagramMainActivity;
+                                        if-eqz v0, :piko_skip_$tag
+                                        const/4 v0, 0x0
+                                        sput-object v0, $prefClassType->pikoSessionFeed:Ljava/lang/String;
+                                        :piko_skip_$tag
+                                        nop
+                                        
+""".""".trimIndent(),
+                     )
+                     }
+                     } }
+                     cur = cls.superclass?.let { classDefByOrNull(it) }
+                     } }
             // 3. Keep the Instagram logo in the Home header instead of replacing it with "Following"/"For You".
             val switcherClass = mutableClassDefBy(TITLE_SWITCHER_CLASS)
             val labelMethod = switcherClass.methods.firstOrNull {
