@@ -15,6 +15,7 @@ import app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.Companion.toMuta
 import com.android.tools.smali.dexlib2.AccessFlags
 import com.android.tools.smali.dexlib2.builder.MutableMethodImplementation
 import com.android.tools.smali.dexlib2.immutable.ImmutableField
+import com.android.tools.smali.dexlib2.immutable.ImmutableMethodParameter
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
 import org.w3c.dom.Element
 
@@ -128,7 +129,7 @@ val registerMethod = ImmutableMethod(
     AccessFlags.PUBLIC.value or AccessFlags.STATIC.value,
     null,
     null,
-    MutableMethodImplementation(7),
+    MutableMethodImplementation(5),
 ).toMutable().apply {
     addInstructions(
         0,
@@ -142,30 +143,53 @@ val registerMethod = ImmutableMethod(
             const-string v0, "newx.my_patches"
             const-string v1, "piko_my_patches_category_title"
             const-string v2, "piko_my_patches_category_summary"
-            const/16 v3, 0x3c
-            invoke-static {v0, v1, v2, v3}, $SETTINGS_REGISTRY->registerCategory(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V
-            const-string v0, "newx.my_patches"
-            const-string v1, "newx.my_patches.home_timeline_gear"
-            const-string v2, "piko_my_patches_home_timeline_gear_title"
-            const-string v3, "piko_my_patches_home_timeline_gear_summary"
-            const/4 v4, 0x1
-            const/16 v5, 0x50
-            const/4 v6, 0x1
-            invoke-static/range {v0 .. v6}, $SETTINGS_REGISTRY->registerToggle(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZIZ)V
-            return-void
+       const-string v3, "ic_vector_wrench"
+const/16 v4, 0x3c
+invoke-static {v0, v1, v2, v3, v4}, $SETTINGS_REGISTRY->registerCategory(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V
+const-string v0, "newx.my_patches"
+const-string v1, "newx.my_patches.home_timeline_gear"
+const-string v2, "piko_my_patches_home_timeline_gear_title"
+const-string v3, "piko_my_patches_home_timeline_gear_summary"
+const/16 v4, 0x50
+invoke-static {v0, v1, v2, v3, v4}, $SETTINGS_REGISTRY->registerToggle(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V
+const-string v0, "newx.my_patches.home_timeline_gear"
+const/4 v1, 0x1
+const/4 v2, 0x1
+invoke-static {v0, v1, v2}, $SETTINGS_REGISTRY->configureToggle(Ljava/lang/String;ZZ)V
+return-void
         """.trimIndent(),
     )
 }
 hostClass.methods.add(registerMethod)
-        homeTabbedStateConstructorFingerprint.method.addInstructions(
+       
+val filterNavStateMethod = ImmutableMethod(
+    HOST_CLASS,
+    "pikoFilterNavState",
+    listOf(ImmutableMethodParameter("Lcom/x/home/f;", null, null)),
+    "Lcom/x/home/f;",
+    AccessFlags.PUBLIC.value or AccessFlags.STATIC.value,
+    null,
+    null,
+    MutableMethodImplementation(2),
+).toMutable().apply {
+    addInstructions(
+        0,
+        """
+            invoke-static {}, $HOST_CLASS->pikoIsHomeGearEnabled()Z
+            move-result v0
+            if-eqz v0, :piko_keep_state
+            sget-object p0, Lcom/x/home/d;->a:Lcom/x/home/d;
+            :piko_keep_state
+            return-object p0
+        """.trimIndent(),
+    )
+}
+hostClass.methods.add(filterNavStateMethod)
+homeTabbedStateConstructorFingerprint.method.addInstructions(
             0,
             """
-                invoke-static {}, $HOST_CLASS->pikoIsHomeGearEnabled()Z
-                move-result v0
-                if-eqz v0, :piko_skip_ctor_gear
-                sget-object p3, Lcom/x/home/d;->a:Lcom/x/home/d;
-                :piko_skip_ctor_gear
-                nop
+       invoke-static/range {p3 .. p3}, $HOST_CLASS->pikoFilterNavState(Lcom/x/home/f;)Lcom/x/home/f;
+move-result-object p3
             """,
         )
 
