@@ -259,8 +259,8 @@ nop
                         invoke-virtual {v0, p0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
                         move-result v0
                         if-eqz v0, :piko_other_frag
-                        const-string v1, "My Patches"
-                        invoke-static {p0, v1}, ${startActivityRef.definingClass}->startPikoActivity(Ljava/lang/String;Ljava/lang/String;)V
+                        const-string v0, "My Patches"
+                        invoke-static {p0, v0}, ${startActivityRef.definingClass}->startPikoActivity(Ljava/lang/String;Ljava/lang/String;)V
                         return-void
                         :piko_other_frag
 nop
