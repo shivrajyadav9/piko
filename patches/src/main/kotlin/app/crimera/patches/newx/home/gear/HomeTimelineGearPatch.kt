@@ -222,8 +222,8 @@ hostClass.methods.add(filterGearMaskMethod)
 val filterNavClickMethod = ImmutableMethod(
 HOST_CLASS,
 "pikoFilterNavClick",
-listOf(ImmutableMethodParameter("Ljava/lang/Object;", null, null)),
-"Ljava/lang/Object;",
+listOf(ImmutableMethodParameter("Lcom/x/home/n0;", null, null)),
+"Lcom/x/home/n0;",
 AccessFlags.PUBLIC.value or AccessFlags.STATIC.value,
 null,
 null,
@@ -297,7 +297,7 @@ move-result v13
         clickMethod.addInstructions(
             xIndex + 1,
             """
-           invoke-static/range {v$clickReg .. v$clickReg}, $HOST_CLASS->pikoFilterNavClick(Ljava/lang/Object;)Ljava/lang/Object;
+           invoke-static/range {v$clickReg .. v$clickReg}, $HOST_CLASS->pikoFilterNavClick(Lcom/x/home/n0;)Lcom/x/home/n0;
 move-result-object v$clickReg
             """,
         )
