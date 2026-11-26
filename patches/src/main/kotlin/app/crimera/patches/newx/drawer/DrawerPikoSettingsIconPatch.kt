@@ -6,6 +6,7 @@ import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
 import app.morphe.patcher.extensions.InstructionExtensions.getInstruction
 import app.morphe.patcher.extensions.InstructionExtensions.removeInstruction
 import app.morphe.patcher.patch.bytecodePatch
+import app.morphe.patcher.patch.resourcePatch
 import app.morphe.patcher.util.proxy.mutableTypes.MutableField.Companion.toMutable
 import app.morphe.patcher.util.proxy.mutableTypes.MutableMethod
 import com.android.tools.smali.dexlib2.AccessFlags
@@ -18,6 +19,36 @@ import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodImplementation
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodParameter
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction10x
+import org.w3c.dom.Element
+
+private const val SETTINGS_REGISTRY = "Lapp/morphe/extension/crimera/settings/SettingsRegistry;"
+private const val BUILT_IN_SETTINGS = "Lapp/morphe/extension/newx/settings/BuiltInSettings;"
+
+private val drawerPikoSettingsIconResourcesPatch = resourcePatch {
+    execute {
+        document("res/values/strings.xml").use { doc ->
+            val resources = doc.documentElement
+            fun addStringIfMissing(name: String, value: String) {
+                val existing = resources.getElementsByTagName("string")
+                for (i in 0 until existing.length) {
+                    if ((existing.item(i) as? Element)?.getAttribute("name") == name) return
+                }
+                val el = doc.createElement("string")
+                el.setAttribute("name", name)
+                el.textContent = value
+                resources.appendChild(el)
+            }
+
+            addStringIfMissing("piko_my_patches_category_title", "My Patches")
+            addStringIfMissing("piko_my_patches_category_summary", "Custom patches")
+            addStringIfMissing("piko_my_patches_drawer_piko_icon_title", "Drawer Piko settings icon")
+            addStringIfMissing(
+                "piko_my_patches_drawer_piko_icon_summary",
+                "Show the Piko Settings gear icon at the bottom-right of the side drawer",
+            )
+        }
+    }
+}
 
 internal val drawerIconButtonFingerprint = Fingerprint(
     definingClass = "Lcom/x/main/drawer/a;",
@@ -47,6 +78,7 @@ val drawerPikoSettingsIconPatch = bytecodePatch(
     description = "Moves Piko Settings from the drawer footer list to a bottom-right Piko gear icon with balanced left/right margins, keeping Explore's normal gear icon untouched.",
 ) {
     compatibleWith(COMPATIBILITY_NEW_X)
+    dependsOn(drawerPikoSettingsIconResourcesPatch)
 
     execute {
         val drawerClass = drawerIconButtonFingerprint.classDef
@@ -122,6 +154,11 @@ val drawerPikoSettingsIconPatch = bytecodePatch(
         helperMethod.addInstructions(
             0,
             """
+                invoke-static {}, Lcom/x/main/drawer/a;->pikoIsDrawerPikoIconEnabled()Z
+                move-result v0
+                if-nez v0, :piko_drawer_gear_enabled
+                return-void
+                :piko_drawer_gear_enabled
                 invoke-static {}, Lapp/morphe/extension/newx/settings/ComposeSettingsHook;->getSettingsClickHandler()Lkotlin/jvm/functions/Function0;
                 move-result-object v1
                 if-eqz v1, :piko_skip
@@ -265,5 +302,88 @@ val drawerPikoSettingsIconPatch = bytecodePatch(
                 nop
             """,
         )
+
+        val enabledMethod = MutableMethod(
+            ImmutableMethod(
+                "Lcom/x/main/drawer/a;",
+                "pikoIsDrawerPikoIconEnabled",
+                emptyList(),
+                "Z",
+                AccessFlags.PUBLIC.value or AccessFlags.STATIC.value,
+                null,
+                null,
+                ImmutableMethodImplementation(
+                    2,
+                    listOf(ImmutableInstruction10x(Opcode.RETURN_VOID)),
+                    null,
+                    null,
+                ),
+            ),
+        )
+        enabledMethod.addInstructions(
+            0,
+            """
+                const-string v0, "newx.my_patches.drawer_piko_icon"
+                const/4 v1, 0x1
+                invoke-static {v0, v1}, $SETTINGS_REGISTRY->getBooleanOrDefault(Ljava/lang/String;Z)Z
+                move-result v0
+                return v0
+            """,
+        )
+        enabledMethod.removeInstruction(enabledMethod.implementation!!.instructions.size - 1)
+        drawerClass.methods.add(enabledMethod)
+
+        val registerSettingsMethod = MutableMethod(
+            ImmutableMethod(
+                "Lcom/x/main/drawer/a;",
+                "pikoRegisterDrawerPikoIconSettings",
+                emptyList(),
+                "V",
+                AccessFlags.PUBLIC.value or AccessFlags.STATIC.value,
+                null,
+                null,
+                ImmutableMethodImplementation(
+                    5,
+                    listOf(ImmutableInstruction10x(Opcode.RETURN_VOID)),
+                    null,
+                    null,
+                ),
+            ),
+        )
+        registerSettingsMethod.addInstructions(
+            0,
+            """
+                const-string v0, "newx.my_patches"
+                const-string v1, "piko_my_patches_category_title"
+                const-string v2, "piko_my_patches_category_summary"
+                const-string v3, "ic_vector_wrench"
+                const/16 v4, 0x3c
+                invoke-static {v0, v1, v2, v3, v4}, $SETTINGS_REGISTRY->registerCategory(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V
+                const-string v0, "newx.my_patches"
+                const-string v1, "newx.my_patches.drawer_piko_icon"
+                const-string v2, "piko_my_patches_drawer_piko_icon_title"
+                const-string v3, "piko_my_patches_drawer_piko_icon_summary"
+                const/16 v4, 0x46
+                invoke-static {v0, v1, v2, v3, v4}, $SETTINGS_REGISTRY->registerToggle(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V
+                const-string v0, "newx.my_patches.drawer_piko_icon"
+                const/4 v1, 0x1
+                const/4 v2, 0x1
+                invoke-static {v0, v1, v2}, $SETTINGS_REGISTRY->configureToggle(Ljava/lang/String;ZZ)V
+                return-void
+            """,
+        )
+        registerSettingsMethod.removeInstruction(registerSettingsMethod.implementation!!.instructions.size - 1)
+        drawerClass.methods.add(registerSettingsMethod)
+    }
+
+    finalize {
+        classDefByOrNull(BUILT_IN_SETTINGS)?.let { builtInDef ->
+            mutableClassDefBy(builtInDef).methods
+                .firstOrNull { it.name == "register" && it.parameters.isEmpty() }
+                ?.addInstructions(
+                    0,
+                    "invoke-static {}, Lcom/x/main/drawer/a;->pikoRegisterDrawerPikoIconSettings()V",
+                )
+        }
     }
 }
