@@ -3,6 +3,7 @@ package app.crimera.patches.newx.home.gear
 import app.crimera.patches.newx.utils.Constants.COMPATIBILITY_NEW_X
 import app.morphe.patcher.Fingerprint
 import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
+import app.morphe.patcher.extensions.InstructionExtensions.removeInstruction
 import app.morphe.patcher.extensions.InstructionExtensions.getInstruction
 import app.morphe.patcher.patch.bytecodePatch
 import com.android.tools.smali.dexlib2.Opcode
@@ -17,6 +18,8 @@ import com.android.tools.smali.dexlib2.builder.MutableMethodImplementation
 import com.android.tools.smali.dexlib2.immutable.ImmutableField
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodParameter
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
+import com.android.tools.smali.dexlib2.immutable.ImmutableMethodImplementation
+import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction10x
 import org.w3c.dom.Element
 
 private const val HOST_CLASS = "Lcom/x/home/v0;"
@@ -98,7 +101,7 @@ val enabledMethod = ImmutableMethod(
     AccessFlags.PUBLIC.value or AccessFlags.STATIC.value,
     null,
     null,
-    MutableMethodImplementation(2),
+    ImmutableMethodImplementation(2, listOf(ImmutableInstruction10x(Opcode.RETURN_VOID)), null, null),
 ).toMutable().apply {
     addInstructions(
         0,
@@ -110,6 +113,7 @@ val enabledMethod = ImmutableMethod(
             return v0
         """.trimIndent(),
     )
+removeInstruction(instructions.lastIndex)
 }
 hostClass.methods.add(enabledMethod)
    
@@ -121,7 +125,7 @@ val filterNavStateMethod = ImmutableMethod(
     AccessFlags.PUBLIC.value or AccessFlags.STATIC.value,
     null,
     null,
-    MutableMethodImplementation(2),
+    ImmutableMethodImplementation(2, listOf(ImmutableInstruction10x(Opcode.RETURN_VOID)), null, null),
 ).toMutable().apply {
     addInstructions(
         0,
@@ -134,8 +138,112 @@ val filterNavStateMethod = ImmutableMethod(
             return-object p0
         """.trimIndent(),
     )
+removeInstruction(instructions.lastIndex)
 }
+val filterNavIconMethod = ImmutableMethod(
+HOST_CLASS,
+"pikoFilterNavIcon",
+listOf(ImmutableMethodParameter("Lcom/x/icons/b;", null, null)),
+"Lcom/x/icons/b;",
+AccessFlags.PUBLIC.value or AccessFlags.STATIC.value,
+null,
+null,
+ImmutableMethodImplementation(2, listOf(ImmutableInstruction10x(Opcode.RETURN_VOID)), null, null),
+).toMutable().apply {
+addInstructions(
+0,
+"""
+invoke-static {}, $HOST_CLASS->pikoIsHomeGearEnabled()Z
+move-result v0
+if-eqz v0, :piko_keep
+sget-object v0, Lcom/x/icons/a;->Ca:Lcom/x/icons/b;
+return-object v0
+:piko_keep
+return-object p0
+""".trimIndent(),
+)
+removeInstruction(instructions.lastIndex)
+}
+hostClass.methods.add(filterNavIconMethod)
 hostClass.methods.add(filterNavStateMethod)
+val filterGearModifierMethod = ImmutableMethod(
+HOST_CLASS,
+"pikoFilterGearModifier",
+listOf(ImmutableMethodParameter("Landroidx/compose/ui/Modifier;", null, null)),
+"Landroidx/compose/ui/Modifier;",
+AccessFlags.PUBLIC.value or AccessFlags.STATIC.value,
+null,
+null,
+ImmutableMethodImplementation(3, listOf(ImmutableInstruction10x(Opcode.RETURN_VOID)), null, null),
+).toMutable().apply {
+addInstructions(
+0,
+"""
+invoke-static {}, $HOST_CLASS->pikoIsHomeGearEnabled()Z
+move-result v0
+if-eqz v0, :piko_keep
+sget-object v0, Landroidx/compose/ui/q;->a:Landroidx/compose/ui/q;
+const/high16 v1, 0x41c80000
+invoke-static {v0, v1}, Landroidx/compose/foundation/layout/q3;->m(Landroidx/compose/ui/Modifier;F)Landroidx/compose/ui/Modifier;
+move-result-object v0
+return-object v0
+:piko_keep
+return-object p0
+""".trimIndent(),
+)
+removeInstruction(instructions.lastIndex)
+}
+hostClass.methods.add(filterGearModifierMethod)
+val filterGearMaskMethod = ImmutableMethod(
+HOST_CLASS,
+"pikoFilterGearMask",
+listOf(ImmutableMethodParameter("I", null, null)),
+"I",
+AccessFlags.PUBLIC.value or AccessFlags.STATIC.value,
+null,
+null,
+ImmutableMethodImplementation(2, listOf(ImmutableInstruction10x(Opcode.RETURN_VOID)), null, null),
+).toMutable().apply {
+addInstructions(
+0,
+"""
+invoke-static {}, $HOST_CLASS->pikoIsHomeGearEnabled()Z
+move-result v0
+if-eqz v0, :piko_keep
+const/16 v0, 0x18
+return v0
+:piko_keep
+return p0
+""".trimIndent(),
+)
+removeInstruction(instructions.lastIndex)
+}
+hostClass.methods.add(filterGearMaskMethod)
+val filterNavClickMethod = ImmutableMethod(
+HOST_CLASS,
+"pikoFilterNavClick",
+listOf(ImmutableMethodParameter("Ljava/lang/Object;", null, null)),
+"Ljava/lang/Object;",
+AccessFlags.PUBLIC.value or AccessFlags.STATIC.value,
+null,
+null,
+ImmutableMethodImplementation(2, listOf(ImmutableInstruction10x(Opcode.RETURN_VOID)), null, null),
+).toMutable().apply {
+addInstructions(
+0,
+"""
+invoke-static {}, $HOST_CLASS->pikoIsHomeGearEnabled()Z
+move-result v0
+if-eqz v0, :piko_keep
+sget-object v0, Lcom/x/home/v;->a:Lcom/x/home/v;
+return-object v0
+:piko_keep
+return-object p0
+""".trimIndent(),
+)
+removeInstruction(instructions.lastIndex)
+}
+hostClass.methods.add(filterNavClickMethod)
 homeTabbedStateConstructorFingerprint.method.addInstructions(
             0,
             """
@@ -156,15 +264,8 @@ move-result-object p3
         iconMethod.addInstructions(
             e8Index + 1,
             """
-                invoke-static {}, $HOST_CLASS->pikoIsHomeGearEnabled()Z
-                move-result v$iconReg
-                if-eqz v$iconReg, :piko_keep_e8
-                sget-object v$iconReg, Lcom/x/icons/a;->Ca:Lcom/x/icons/b;
-                goto :piko_icon_done
-                :piko_keep_e8
-                sget-object v$iconReg, $e8Ref
-                :piko_icon_done
-                nop
+           invoke-static/range {v$iconReg .. v$iconReg}, $HOST_CLASS->pikoFilterNavIcon(Lcom/x/icons/b;)Lcom/x/icons/b;
+move-result-object v$iconReg
             """,
         )
 
@@ -178,15 +279,10 @@ move-result-object p3
         iconMethod.addInstructions(
             jCallIndex,
             """
-                invoke-static {}, $HOST_CLASS->pikoIsHomeGearEnabled()Z
-                move-result v13
-                if-eqz v13, :piko_restore_v13
-                sget-object v7, Landroidx/compose/ui/q;->a:Landroidx/compose/ui/q;
-                const/high16 v13, 0x41c80000
-                invoke-static {v7, v13}, Landroidx/compose/foundation/layout/q3;->m(Landroidx/compose/ui/Modifier;F)Landroidx/compose/ui/Modifier;
-                move-result-object v7
-                :piko_restore_v13
-                const/16 v13, 0x18
+           invoke-static/range {v7 .. v7}, $HOST_CLASS->pikoFilterGearModifier(Landroidx/compose/ui/Modifier;)Landroidx/compose/ui/Modifier;
+move-result-object v7
+invoke-static/range {v13 .. v13}, $HOST_CLASS->pikoFilterGearMask(I)I
+move-result v13
             """,
         )
 
@@ -201,15 +297,8 @@ move-result-object p3
         clickMethod.addInstructions(
             xIndex + 1,
             """
-                invoke-static {}, $HOST_CLASS->pikoIsHomeGearEnabled()Z
-                move-result v$clickReg
-                if-eqz v$clickReg, :piko_keep_click
-                sget-object v$clickReg, Lcom/x/home/v;->a:Lcom/x/home/v;
-                goto :piko_click_done
-                :piko_keep_click
-                sget-object v$clickReg, $xRef
-                :piko_click_done
-                nop
+           invoke-static/range {v$clickReg .. v$clickReg}, $HOST_CLASS->pikoFilterNavClick(Ljava/lang/Object;)Ljava/lang/Object;
+move-result-object v$clickReg
             """,
         )
     }
@@ -225,7 +314,7 @@ emptyList(),
 AccessFlags.PUBLIC.value or AccessFlags.STATIC.value,
 null,
 null,
-MutableMethodImplementation(5),
+ImmutableMethodImplementation(5, listOf(ImmutableInstruction10x(Opcode.RETURN_VOID)), null, null),
 ).toMutable().apply {
 addInstructions(
 0,
@@ -249,6 +338,7 @@ invoke-static {v0, v1, v2}, $SETTINGS_REGISTRY->configureToggle(Ljava/lang/Strin
 return-void
 """.trimIndent(),
 )
+removeInstruction(instructions.lastIndex)
 }
 mutableBuiltIn.methods.add(registerSettingsMethod)
 val registerAll = mutableBuiltIn.methods.first { it.name == "register" }
