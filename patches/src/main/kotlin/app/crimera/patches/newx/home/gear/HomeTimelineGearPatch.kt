@@ -113,7 +113,7 @@ val enabledMethod = ImmutableMethod(
             return v0
         """.trimIndent(),
     )
-removeInstruction(instructions.lastIndex)
+removeInstruction(implementation!!.instructions.size - 1)
 }
 hostClass.methods.add(enabledMethod)
    
@@ -138,7 +138,7 @@ val filterNavStateMethod = ImmutableMethod(
             return-object p0
         """.trimIndent(),
     )
-removeInstruction(instructions.lastIndex)
+removeInstruction(implementation!!.instructions.size - 1)
 }
 val filterNavIconMethod = ImmutableMethod(
 HOST_CLASS,
@@ -162,7 +162,7 @@ return-object v0
 return-object p0
 """.trimIndent(),
 )
-removeInstruction(instructions.lastIndex)
+removeInstruction(implementation!!.instructions.size - 1)
 }
 hostClass.methods.add(filterNavIconMethod)
 hostClass.methods.add(filterNavStateMethod)
@@ -191,7 +191,7 @@ return-object v0
 return-object p0
 """.trimIndent(),
 )
-removeInstruction(instructions.lastIndex)
+removeInstruction(implementation!!.instructions.size - 1)
 }
 hostClass.methods.add(filterGearModifierMethod)
 val filterGearMaskMethod = ImmutableMethod(
@@ -216,7 +216,7 @@ return v0
 return p0
 """.trimIndent(),
 )
-removeInstruction(instructions.lastIndex)
+removeInstruction(implementation!!.instructions.size - 1)
 }
 hostClass.methods.add(filterGearMaskMethod)
 val filterNavClickMethod = ImmutableMethod(
@@ -241,7 +241,7 @@ return-object v0
 return-object p0
 """.trimIndent(),
 )
-removeInstruction(instructions.lastIndex)
+removeInstruction(implementation!!.instructions.size - 1)
 }
 hostClass.methods.add(filterNavClickMethod)
 homeTabbedStateConstructorFingerprint.method.addInstructions(
@@ -338,7 +338,7 @@ invoke-static {v0, v1, v2}, $SETTINGS_REGISTRY->configureToggle(Ljava/lang/Strin
 return-void
 """.trimIndent(),
 )
-removeInstruction(instructions.lastIndex)
+removeInstruction(implementation!!.instructions.size - 1)
 }
 mutableBuiltIn.methods.add(registerSettingsMethod)
 val registerAll = mutableBuiltIn.methods.first { it.name == "register" }
