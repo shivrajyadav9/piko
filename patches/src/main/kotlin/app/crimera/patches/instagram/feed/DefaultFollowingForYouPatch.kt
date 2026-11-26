@@ -184,8 +184,7 @@ prefClass.methods.add(orDefaultFollowingHelper)
             invoke-static {}, $prefClassType->pikoIsDefaultFollowingEnabled()Z
             move-result v0
             if-eqz v0, :piko_stock_get
-                invoke-static {}, $prefClassType->pikoGetSessionFeed()Ljava/lang/String;
-                move-result-object v0
+                const-string v0, "FOLLOWING"
                 return-object v0
             :piko_stock_get
 nop
@@ -198,7 +197,6 @@ nop
             invoke-static {}, $prefClassType->pikoIsDefaultFollowingEnabled()Z
             move-result v0
             if-eqz v0, :piko_stock_set
-                sput-object p1, $prefClassType->pikoSessionFeed:Ljava/lang/String;
                 return-void
 :piko_stock_set
 nop
